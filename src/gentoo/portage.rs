@@ -119,7 +119,9 @@ impl Portage {
                     .to_string();
                 let homepage: Option<Vec<String>> =
                     match fs::read_to_string(pkg.path().join("HOMEPAGE")) {
-                        Ok(homepage) => Some(homepage.split('\n').map(|s| s.to_string()).collect()),
+                        Ok(homepage) => {
+                            Some(homepage.split_whitespace().map(|s| s.to_string()).collect())
+                        }
                         Err(_) => None,
                     };
 
