@@ -12,6 +12,9 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 KeyCode::Char('j') => app.list_state.select_next(),
                 KeyCode::Char('k') => app.list_state.select_previous(),
                 KeyCode::Char('/') => app.toggle_search_window(),
+                KeyCode::Char('n') => app.next_search(),
+                KeyCode::Char('N') => app.prev_search(),
+
                 _ => return Ok(false),
             }
         } else {

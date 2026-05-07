@@ -22,16 +22,24 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     render_packages(frame, split[0], app);
     render_use_flags(frame, split[1], app);
 
-    let key_hint = match app.showing_search_window {
-        false => Span::styled(
-            "(q) to quit | (/) to search | (j) down | (k) up",
-            Style::default().fg(Color::Yellow),
-        ),
-        true => Span::styled(
-            "(esc) to quit search | (enter) to search",
-            Style::default().fg(Color::Yellow),
-        ),
+    let text = match app.showing_search_window {
+        false => {
+            let mut main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
+            if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len)
+            {
+                main_key_hint.push_str(&format!(
+                    " | (n) for next search | (N) for previous search | Searches found: {} / {}",
+                    current + 1,
+                    total
+                ));
+            }
+
+            main_key_hint
+        }
+        true => "(esc) to quit search | (enter) to search".to_string(),
     };
+
+    let key_hint = Span::styled(text, Style::default().fg(Color::Yellow));
 
     let key_notes_footer =
         Paragraph::new(Line::from(key_hint)).block(Block::default().borders(Borders::ALL));
