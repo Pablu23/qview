@@ -35,6 +35,15 @@ impl<'a> App<'a> {
         self.portage.installed_packages.clone()
     }
 
+    pub fn current_package(&self) -> Package {
+        let selected_package_index = match self.list_state.selected() {
+            Some(selected) => selected,
+            None => 0,
+        };
+
+        self.portage.installed_packages[selected_package_index].clone()
+    }
+
     pub fn toggle_search_window(&mut self) {
         self.showing_search_window = !self.showing_search_window;
         self.textarea.clear();

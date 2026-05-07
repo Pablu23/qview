@@ -20,9 +20,20 @@ use ratatui::{
 
 use crate::{app::App, event::handle_event, gentoo::Portage, ui::ui};
 
+struct TuiGuard;
+
+impl Drop for TuiGuard {
+    fn drop(&mut self) {
+        _ = restore_tui();
+    }
+}
+
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     init_panic_hook();
+
+    let _guard = TuiGuard;
+
     let mut tui = init_tui()?;
 
     let mut p = Portage::new();
@@ -32,7 +43,7 @@ fn main() -> color_eyre::Result<()> {
 
     run(&mut tui, &mut app)?;
 
-    restore_tui()?;
+    // restore_tui()?;
 
     Ok(())
 }

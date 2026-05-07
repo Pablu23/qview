@@ -1,6 +1,6 @@
 use std::io;
 
-use ratatui::crossterm::event::{self, Event, KeyCode};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
 use crate::app::App;
 
@@ -14,6 +14,28 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 KeyCode::Char('/') => app.toggle_search_window(),
                 KeyCode::Char('n') => app.next_search(),
                 KeyCode::Char('N') => app.prev_search(),
+
+                KeyCode::Char('d') => match key.modifiers {
+                    KeyModifiers::CONTROL => app
+                        .list_state
+                        .select(Some(app.list_state.selected().unwrap_or(0) + 30)),
+
+                    _ => return Ok(false),
+                },
+
+                KeyCode::Char('u') => match key.modifiers {
+                    KeyModifiers::CONTROL => {
+                        if let Some(selected) = app.list_state.selected() {
+                            if selected < 30 {
+                                app.list_state.select(Some(0));
+                            } else {
+                                app.list_state.select(Some(selected - 30))
+                            }
+                        }
+                    }
+
+                    _ => return Ok(false),
+                },
 
                 _ => return Ok(false),
             }

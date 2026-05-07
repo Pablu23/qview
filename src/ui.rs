@@ -2,9 +2,9 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
     prelude::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use crate::app::App;
@@ -15,12 +15,15 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     let layout = Layout::vertical(constraints);
     let [top, bottom] = frame.area().layout(&layout);
 
-    let split = Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
-        .spacing(1)
-        .split(top);
+    let split =
+        Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).split(top);
+
+    let split_vert =
+        Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)]).split(split[1]);
 
     render_packages(frame, split[0], app);
-    render_use_flags(frame, split[1], app);
+    render_use_flags(frame, split_vert[0], app);
+    render_package_metadata(frame, split_vert[1], app);
 
     let text = match app.showing_search_window {
         false => {
@@ -69,6 +72,82 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
 }
 
+fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
+    let pkg = app.current_package();
+
+    let bold_style = Style::default().add_modifier(Modifier::BOLD);
+    let maintainer = Line::from_iter([
+        Span::styled("Maintainer: ", bold_style),
+        Span::raw(pkg.maintainer.as_deref().unwrap_or("Unknown")),
+    ]);
+
+    let version = Line::from_iter([
+        Span::styled("Version: ", bold_style),
+        Span::raw(pkg.version),
+    ]);
+
+    let repository = Line::from_iter([
+        Span::styled("Repository: ", bold_style),
+        Span::raw(pkg.repository),
+    ]);
+
+    let license = Line::from_iter([
+        Span::styled("License: ", bold_style),
+        Span::raw(pkg.license.as_deref().unwrap_or("Unknown")),
+    ]);
+
+    let description = Line::from_iter([
+        Span::styled("Description: ", bold_style),
+        Span::raw(pkg.description.as_deref().unwrap_or("Unknown")),
+    ]);
+
+    // let homepage = Line::from_iter([
+    //     Span::styled("Homepage: ", bold_style),
+    //     Span::styled(
+    //         pkg.homepage.as_deref().unwrap_or("Unknown"),
+    //         Style::default().fg(Color::LightBlue),
+    //     ),
+    // ]);
+
+    let mut lines = Vec::new();
+
+    // First line: label
+    lines.push(Line::from(vec![
+        Span::styled("Homepage: ", bold_style),
+        Span::raw(""),
+    ]));
+
+    // Following lines: one URL per line, indented
+    if let Some(homepages) = pkg.homepage {
+        for url in homepages.into_iter().filter(|s| !s.is_empty()) {
+            lines.push(Line::from(vec![
+                Span::raw("  "), // indentation
+                Span::styled(
+                    url,
+                    Style::default()
+                        .fg(Color::LightBlue)
+                        .add_modifier(Modifier::UNDERLINED),
+                ),
+            ]));
+        }
+    } else {
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled("Unknown", Style::default().fg(Color::DarkGray)),
+        ]));
+    }
+
+    let mut homepage = lines;
+    let mut lines = vec![maintainer, version, repository, license, description];
+    lines.append(&mut homepage);
+
+    let paragraph = Paragraph::new(lines)
+        .block(Block::default().title("Metadata").borders(Borders::ALL))
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, area);
+}
+
 fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
     // Cut the given rectangle into three vertical pieces
     let popup_layout = Layout::default()
@@ -103,11 +182,7 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn render_use_flags(frame: &mut Frame, area: Rect, app: &mut App) {
-    let selected_package_index = match app.list_state.selected() {
-        Some(selected) => selected,
-        None => 0,
-    };
-    let selected_package = app.installed_packages()[selected_package_index].clone();
+    let selected_package = app.current_package();
 
     let items = selected_package.use_flags.into_iter().map(|x| {
         let color = if x.enabled {

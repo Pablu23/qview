@@ -1,4 +1,6 @@
-use std::fs;
+use std::{fs, io, path::PathBuf};
+
+use quick_xml::{Reader, events::Event};
 
 use crate::gentoo::{Package, UseFlag};
 
@@ -25,6 +27,45 @@ fn split_pkg(input: &str) -> (&str, Option<&str>) {
     (input, None)
 }
 
+fn extract_maintainer(path: &PathBuf) -> io::Result<Option<String>> {
+    let s = fs::read_to_string(path)?;
+    let mut reader = Reader::from_str(s.as_str());
+    reader.config_mut().trim_text(true);
+
+    let mut buf = Vec::new();
+    let mut in_maintainer = false;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) if e.name().as_ref() == b"maintainer" => {
+                in_maintainer = true;
+            }
+
+            Ok(Event::Text(e)) if in_maintainer => {
+                match e.xml_content() {
+                    Ok(s) => {
+                        return Ok(Some(s.into()));
+                    }
+                    Err(_) => return Ok(None),
+                };
+            }
+
+            Ok(Event::End(e)) if e.name().as_ref() == b"maintainer" => {
+                in_maintainer = false;
+            }
+
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+
+            _ => {}
+        }
+
+        buf.clear();
+    }
+
+    Ok(None)
+}
+
 impl Portage {
     pub fn new() -> Self {
         Self {
@@ -32,7 +73,7 @@ impl Portage {
         }
     }
 
-    pub fn load_installed_packages(&mut self) -> Result<(), std::io::Error> {
+    pub fn load_installed_packages(&mut self) -> io::Result<()> {
         let categories = fs::read_dir("/var/db/pkg")?;
 
         for category in categories {
@@ -72,9 +113,43 @@ impl Portage {
                     })
                     .collect();
 
+                // let category = fs::read_to_string(pkg.path().join("CATEGORY"))?;
+                let repository = fs::read_to_string(pkg.path().join("repository"))?
+                    .trim()
+                    .to_string();
+                let homepage: Option<Vec<String>> =
+                    match fs::read_to_string(pkg.path().join("HOMEPAGE")) {
+                        Ok(homepage) => Some(homepage.split('\n').map(|s| s.to_string()).collect()),
+                        Err(_) => None,
+                    };
+
+                let license: Option<String> = match fs::read_to_string(pkg.path().join("LICENSE")) {
+                    Ok(license) => Some(license.trim().to_string()),
+                    Err(_) => None,
+                };
+
+                let description: Option<String> =
+                    match fs::read_to_string(pkg.path().join("DESCRIPTION")) {
+                        Ok(description) => Some(description.trim().to_string()),
+                        Err(_) => None,
+                    };
+
+                let repo_path = PathBuf::from("/var/db/repos/")
+                    .join(&repository)
+                    .join(cat_name.to_str().unwrap())
+                    .join(pkg_name)
+                    .join("metadata.xml");
+
+                let maintainer = extract_maintainer(&repo_path)?;
+
                 self.installed_packages.push(Package::new(
                     format!("{}/{}", cat_name.to_str().unwrap(), pkg_name),
                     pkg_version.unwrap().into(),
+                    repository,
+                    homepage,
+                    license,
+                    description,
+                    maintainer,
                     use_flags,
                 ));
             }
