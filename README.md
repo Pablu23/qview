@@ -10,7 +10,6 @@ Built with Rust and Ratatui.
 
 * Browse installed Gentoo packages
 * Inspect package metadata
-
   * Version
   * Repository
   * Maintainer
@@ -18,12 +17,10 @@ Built with Rust and Ratatui.
   * Homepage
   * Installed size
 * View package USE flags
-
   * Enabled flags
   * Default flags
 * Search installed packages
 * Dashboard overview
-
   * Installed package count
   * World package count
   * Installed size
@@ -52,7 +49,6 @@ Built with Rust and Ratatui.
 ### Build from source
 
 Requirements:
-
 * Rust (stable)
 * Cargo
 * Gentoo Linux
@@ -83,7 +79,6 @@ Run:
 This repository includes a `flake.nix` for development environments.
 
 The flake is intended for:
-
 * dependency management
 * reproducible development shells
 * editor tooling
@@ -137,13 +132,11 @@ nix develop
 ## Planned Features
 
 The project is still early in development. Planned features include:
-
 * Public Gentoo ebuild
 * Async package metadata loading
 * Portage news reader
 * Portage package search/browser
 * Filtering installed packages
-
   * World packages
   * Explicitly installed packages
   * Repository filters
@@ -177,7 +170,6 @@ src/
 qview exists to provide a lightweight terminal interface for exploring Gentoo package information without repeatedly invoking multiple Portage utilities manually.
 
 The focus is:
-
 * fast navigation
 * clean terminal UX
 * useful metadata presentation
