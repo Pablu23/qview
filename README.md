@@ -1,0 +1,201 @@
+# qview
+
+A terminal dashboard for exploring and inspecting a Gentoo system using Portage metadata.
+
+Built with Rust and Ratatui.
+
+---
+
+## Features
+
+* Browse installed Gentoo packages
+* Inspect package metadata
+
+  * Version
+  * Repository
+  * Maintainer
+  * License
+  * Homepage
+  * Installed size
+* View package USE flags
+
+  * Enabled flags
+  * Default flags
+* Search installed packages
+* Dashboard overview
+
+  * Installed package count
+  * World package count
+  * Installed size
+
+---
+
+## Screenshots
+
+### Dashboard
+
+![Dashboard](.github/images/qview-dashboard.png)
+
+### Installed Packages View
+
+![Installed Packages](.github/images/qview-installed-packages.png)
+
+
+### Search Popup
+
+![Search](.github/images/qview-search.png)
+
+---
+
+## Installation
+
+### Build from source
+
+Requirements:
+
+* Rust (stable)
+* Cargo
+* Gentoo Linux
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Pablu23/qview
+cd qview
+```
+
+Build:
+
+```bash
+cargo build --release
+```
+
+Run:
+
+```bash
+./target/release/qview
+```
+
+---
+
+## Development Environment
+
+This repository includes a `flake.nix` for development environments.
+
+The flake is intended for:
+
+* dependency management
+* reproducible development shells
+* editor tooling
+
+It is **not currently used for building or packaging qview itself**.
+
+Enter the development shell with:
+
+```bash
+nix develop
+```
+
+---
+
+## Usage
+
+### Keybinds
+
+#### Global
+
+| Key   | Action       |
+| ----- | ------------ |
+| `q`   | Quit         |
+| `Tab` | Switch views |
+
+---
+
+### Installed Packages View
+
+| Key      | Action                 |
+| -------- | ---------------------- |
+| `j`      | Move down              |
+| `k`      | Move up                |
+| `/`      | Open search            |
+| `n`      | Next search result     |
+| `N`      | Previous search result |
+| `Ctrl+d` | Scroll down            |
+| `Ctrl+u` | Scroll up              |
+
+---
+
+### Search
+
+| Key     | Action         |
+| ------- | -------------- |
+| `Enter` | Confirm search |
+| `Esc`   | Close search   |
+
+---
+
+## Planned Features
+
+The project is still early in development. Planned features include:
+
+* Public Gentoo ebuild
+* Async package metadata loading
+* Portage news reader
+* Portage package search/browser
+* Filtering installed packages
+
+  * World packages
+  * Explicitly installed packages
+  * Repository filters
+  * USE flag filters
+* Improved dashboard statistics
+* Search improvements
+* Better package metadata rendering
+* Sorting options
+* Performance improvements for large systems
+
+---
+
+## Project Structure
+
+```text
+src/
+├── app.rs        # Application state and logic
+├── event.rs      # Keyboard/event handling
+├── ui.rs         # Ratatui rendering
+├── main.rs       # Application bootstrap
+└── gentoo/
+    ├── package.rs
+    ├── portage.rs
+    └── useflags.rs
+```
+
+---
+
+## Motivation
+
+qview exists to provide a lightweight terminal interface for exploring Gentoo package information without repeatedly invoking multiple Portage utilities manually.
+
+The focus is:
+
+* fast navigation
+* clean terminal UX
+* useful metadata presentation
+* native Gentoo integration
+
+---
+
+## License
+
+MIT License
+
+Copyright 2026 Pablu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+> Documentation written with AI assistance and edited for accuracy.
