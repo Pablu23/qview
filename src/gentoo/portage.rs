@@ -1,4 +1,8 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+    collections::HashSet,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use quick_xml::{Reader, events::Event};
 
@@ -14,21 +18,20 @@ fn split_pkg(input: &str) -> (&str, Option<&str>) {
     let bytes = input.as_bytes();
 
     for i in (0..bytes.len()).rev() {
-        if bytes[i] == b'-' {
-            if let Some(next) = bytes.get(i + 1) {
-                if next.is_ascii_digit() {
-                    let name = &input[..i];
-                    let version = &input[i + 1..];
-                    return (name, Some(version));
-                }
-            }
+        if bytes[i] == b'-'
+            && let Some(next) = bytes.get(i + 1)
+            && next.is_ascii_digit()
+        {
+            let name = &input[..i];
+            let version = &input[i + 1..];
+            return (name, Some(version));
         }
     }
 
     (input, None)
 }
 
-fn extract_maintainer(path: &PathBuf) -> io::Result<Option<String>> {
+fn extract_maintainer(path: &Path) -> io::Result<Option<String>> {
     let s = fs::read_to_string(path)?;
     let mut reader = Reader::from_str(s.as_str());
     reader.config_mut().trim_text(true);
@@ -55,8 +58,7 @@ fn extract_maintainer(path: &PathBuf) -> io::Result<Option<String>> {
                 in_maintainer = false;
             }
 
-            Ok(Event::Eof) => break,
-            Err(_) => break,
+            Ok(Event::Eof) | Err(_) => break,
 
             _ => {}
         }
@@ -77,7 +79,10 @@ impl Portage {
 
     pub fn load_world_packages(&mut self) -> io::Result<()> {
         let world = fs::read_to_string("/var/lib/portage/world")?;
-        self.world_packages = world.split_whitespace().map(|s| s.to_string()).collect();
+        self.world_packages = world
+            .split_whitespace()
+            .map(std::string::ToString::to_string)
+            .collect();
         Ok(())
     }
 
@@ -85,42 +90,31 @@ impl Portage {
         let categories = fs::read_dir("/var/db/pkg")?;
 
         for category in categories {
-            let category = match category {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Ok(category) = category else {
+                continue;
             };
 
             let cat_name = category.file_name();
             let pkgs = fs::read_dir(category.path())?;
             for pkg in pkgs {
-                let pkg = match pkg {
-                    Ok(p) => p,
-                    Err(_) => continue,
+                let Ok(pkg) = pkg else {
+                    continue;
                 };
 
                 let pkg_name = pkg.file_name();
-                let pkg_name = match pkg_name.to_str() {
-                    Some(n) => n,
-                    None => continue,
+                let Some(pkg_name) = pkg_name.to_str() else {
+                    continue;
                 };
 
                 let (pkg_name, pkg_version) = split_pkg(pkg_name);
 
-                let use_flags_file = fs::read(pkg.path().join("USE"))?;
-                let use_flags: Vec<&str> = str::from_utf8(&use_flags_file)
-                    .unwrap_or_default()
-                    .trim()
-                    .split(' ')
-                    .collect();
+                let use_flags_file = fs::read_to_string(pkg.path().join("USE"))?;
+                let use_flags: HashSet<&str> = use_flags_file.trim().split(' ').collect();
 
-                let iuse_flags_file = fs::read(pkg.path().join("IUSE"))?;
-                let iuse_flags: Vec<&str> = str::from_utf8(&iuse_flags_file)
-                    .unwrap_or_default()
-                    .trim()
-                    .split(' ')
-                    .collect();
+                let iuse_flags_file = fs::read_to_string(pkg.path().join("IUSE"))?;
+                let iuse_flags: Vec<&str> = iuse_flags_file.trim().split(' ').collect();
 
-                let use_flags: Vec<UseFlag> = iuse_flags
+                let use_flags: HashSet<UseFlag> = iuse_flags
                     .iter()
                     .filter(|x| !x.trim().is_empty())
                     .map(|&original_iuse| {
@@ -138,9 +132,12 @@ impl Portage {
                     .to_string();
                 let homepage: Option<Vec<String>> =
                     match fs::read_to_string(pkg.path().join("HOMEPAGE")) {
-                        Ok(homepage) => {
-                            Some(homepage.split_whitespace().map(|s| s.to_string()).collect())
-                        }
+                        Ok(homepage) => Some(
+                            homepage
+                                .split_whitespace()
+                                .map(std::string::ToString::to_string)
+                                .collect(),
+                        ),
                         Err(_) => None,
                     };
 
@@ -168,17 +165,17 @@ impl Portage {
 
                 let maintainer = extract_maintainer(&repo_path)?;
 
-                self.installed_packages.push(Package::new(
-                    format!("{}/{}", cat_name.to_str().unwrap_or_default(), pkg_name),
-                    pkg_version.unwrap().into(),
+                self.installed_packages.push(Package {
+                    name: format!("{}/{}", cat_name.to_str().unwrap_or_default(), pkg_name),
+                    use_flags,
+                    version: pkg_version.unwrap_or_default().into(),
                     repository,
-                    size,
+                    maintainer,
+                    description,
                     homepage,
                     license,
-                    description,
-                    maintainer,
-                    use_flags,
-                ));
+                    size,
+                });
             }
         }
 

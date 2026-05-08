@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Spacing},
@@ -16,7 +18,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn render_dashboard(frame: &mut Frame, app: &mut App) {
+fn render_dashboard(frame: &mut Frame, app: &App) {
     let logo = "
  ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
 ██╔═══██╗██║   ██║██║██╔════╝██║    ██║
@@ -153,21 +155,20 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
     render_use_flags(frame, split_vert[0], app);
     render_package_metadata(frame, split_vert[1], app);
 
-    let text = match app.showing_search_window {
-        false => {
-            let mut main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
-            if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len)
-            {
-                main_key_hint.push_str(&format!(
-                    " | (n) for next search | (N) for previous search | Searches found: {} / {}",
-                    current + 1,
-                    total
-                ));
-            }
-
-            main_key_hint
+    let text = if app.showing_search_window {
+        "(esc) to quit search | (enter) to search".to_string()
+    } else {
+        let mut main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
+        if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len) {
+            let _ = write!(
+                main_key_hint,
+                " | (n) for next search | (N) for previous search | Searches found: {} / {}",
+                current + 1,
+                total
+            );
         }
-        true => "(esc) to quit search | (enter) to search".to_string(),
+
+        main_key_hint
     };
 
     let key_hint = Span::styled(text, Style::default().fg(Color::Yellow));
@@ -184,9 +185,9 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
 
         if let Some(found) = app.search_found {
             if found {
-                popup_block = popup_block.border_style(Style::default().fg(Color::Green))
+                popup_block = popup_block.border_style(Style::default().fg(Color::Green));
             } else {
-                popup_block = popup_block.border_style(Style::default().fg(Color::Red))
+                popup_block = popup_block.border_style(Style::default().fg(Color::Red));
             }
         }
 
@@ -200,7 +201,7 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
+fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
     let pkg = app.current_package();
 
     let bold_style = Style::default().add_modifier(Modifier::BOLD);
@@ -236,7 +237,7 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
 
     let mut lines = vec![maintainer, version, repository, license, description, size];
 
-    let mut homepage = homepage_lines(&pkg, bold_style);
+    let mut homepage = homepage_lines(pkg, bold_style);
     lines.append(&mut homepage);
 
     let paragraph = Paragraph::new(lines)
@@ -294,7 +295,12 @@ fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
 }
 
 fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
-    let items = app.installed_packages().into_iter().map(|x| x.name.clone());
+    let items: Vec<String> = app
+        .installed_packages()
+        .iter()
+        .map(|x| x.name.clone())
+        .collect();
+
     let list = List::new(items)
         .style(Color::White)
         .highlight_style(Modifier::REVERSED)
@@ -308,7 +314,7 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_stateful_widget(list, area, &mut app.list_state);
 }
 
-fn render_use_flags(frame: &mut Frame, area: Rect, app: &mut App) {
+fn render_use_flags(frame: &mut Frame, area: Rect, app: &App) {
     let selected_package = app.current_package();
 
     let items = selected_package.use_flags.iter().map(|x| {

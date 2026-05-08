@@ -22,7 +22,7 @@ pub struct App<'a> {
     pub view: ViewState,
 }
 
-impl<'a> App<'a> {
+impl App<'_> {
     pub fn new(portage: Portage) -> Self {
         App {
             portage,
@@ -46,11 +46,7 @@ impl<'a> App<'a> {
     }
 
     pub fn current_package(&self) -> &Package {
-        let selected_package_index = match self.list_state.selected() {
-            Some(selected) => selected,
-            None => 0,
-        };
-
+        let selected_package_index = self.list_state.selected().unwrap_or_default();
         &self.portage.installed_packages[selected_package_index]
     }
 
@@ -96,18 +92,16 @@ impl<'a> App<'a> {
 
         self.search_indexes = None;
 
-        return false;
+        false
     }
 
     pub fn next_search(&mut self) {
-        let mut current_index = match self.current_search_index {
-            Some(i) => i,
-            None => return,
+        let Some(mut current_index) = self.current_search_index else {
+            return;
         };
 
-        let search_indexes = match &self.search_indexes {
-            Some(i) => i,
-            None => return,
+        let Some(search_indexes) = &self.search_indexes else {
+            return;
         };
 
         if current_index + 1 >= search_indexes.len() {
@@ -119,18 +113,16 @@ impl<'a> App<'a> {
         let list_index = search_indexes[current_index];
 
         self.list_state.select(Some(list_index));
-        self.current_search_index = Some(current_index)
+        self.current_search_index = Some(current_index);
     }
 
     pub fn prev_search(&mut self) {
-        let mut current_index = match self.current_search_index {
-            Some(i) => i,
-            None => return,
+        let Some(mut current_index) = self.current_search_index else {
+            return;
         };
 
-        let search_indexes = match &self.search_indexes {
-            Some(i) => i,
-            None => return,
+        let Some(search_indexes) = &self.search_indexes else {
+            return;
         };
 
         if current_index == 0 {
@@ -142,6 +134,6 @@ impl<'a> App<'a> {
         let list_index = search_indexes[current_index];
 
         self.list_state.select(Some(list_index));
-        self.current_search_index = Some(current_index)
+        self.current_search_index = Some(current_index);
     }
 }
