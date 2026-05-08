@@ -7,6 +7,7 @@ use crate::gentoo::{Package, UseFlag};
 #[derive(Debug)]
 pub struct Portage {
     pub installed_packages: Vec<Package>,
+    pub world_packages: Vec<String>,
 }
 
 fn split_pkg(input: &str) -> (&str, Option<&str>) {
@@ -70,7 +71,14 @@ impl Portage {
     pub fn new() -> Self {
         Self {
             installed_packages: vec![],
+            world_packages: vec![],
         }
+    }
+
+    pub fn load_world_packages(&mut self) -> io::Result<()> {
+        let world = fs::read_to_string("/var/lib/portage/world")?;
+        self.world_packages = world.split_whitespace().map(|s| s.to_string()).collect();
+        Ok(())
     }
 
     pub fn load_installed_packages(&mut self) -> io::Result<()> {
@@ -113,7 +121,6 @@ impl Portage {
                     })
                     .collect();
 
-                // let category = fs::read_to_string(pkg.path().join("CATEGORY"))?;
                 let repository = fs::read_to_string(pkg.path().join("repository"))?
                     .trim()
                     .to_string();
@@ -136,6 +143,11 @@ impl Portage {
                         Err(_) => None,
                     };
 
+                let size: usize = match fs::read_to_string(pkg.path().join("SIZE")) {
+                    Ok(size) => size.trim().parse().unwrap_or(0),
+                    Err(_) => 0,
+                };
+
                 let repo_path = PathBuf::from("/var/db/repos/")
                     .join(&repository)
                     .join(cat_name.to_str().unwrap())
@@ -148,6 +160,7 @@ impl Portage {
                     format!("{}/{}", cat_name.to_str().unwrap(), pkg_name),
                     pkg_version.unwrap().into(),
                     repository,
+                    size,
                     homepage,
                     license,
                     description,

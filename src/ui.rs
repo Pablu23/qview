@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Spacing},
     prelude::Rect,
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
@@ -29,30 +29,30 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
 
     let constraints = [
         Constraint::Length(9),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
-        Constraint::Percentage(10),
+        Constraint::Percentage(30),
         Constraint::Fill(1),
         Constraint::Length(3),
     ];
 
     let layout = Layout::vertical(constraints);
 
-    let [
-        logo_top,
-        top_stats,
-        middle_stats,
-        bottom_stats,
-        _fill,
-        key_hints,
-    ] = frame.area().layout(&layout);
+    let [logo_top, stats, _fill, key_hints] = frame.area().layout(&layout);
+
+    let [stats_top, stats_middle, stats_bottom] = Layout::vertical([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .spacing(Spacing::Overlap(1))
+    .areas(stats);
 
     let splits = Layout::horizontal([
         Constraint::Fill(1),
         Constraint::Fill(1),
         Constraint::Fill(1),
     ])
-    .split(top_stats);
+    .spacing(Spacing::Overlap(1))
+    .split(stats_top);
 
     let logo = Paragraph::new(logo);
     frame.render_widget(logo, logo_top);
@@ -74,9 +74,11 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
         Constraint::Fill(1),
         Constraint::Fill(1),
     ])
-    .split(middle_stats);
+    .spacing(Spacing::Overlap(1))
+    .split(stats_middle);
 
-    let world_packages = create_stats("World Packages", "203");
+    let world_package_count = app.world_count().to_string();
+    let world_packages = create_stats("World Packages", &world_package_count);
     let pending_updates = create_stats("Pending Updates", "16");
     let last_emerge = create_stats("Last Emerge", "11:24 today");
 
@@ -89,9 +91,12 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
         Constraint::Fill(1),
         Constraint::Fill(1),
     ])
-    .split(bottom_stats);
+    .spacing(Spacing::Overlap(1))
+    .split(stats_bottom);
 
-    let installed_size = create_stats("Installed Size", "38.2 GB");
+    let installed_size = human_size(app.total_installed_size());
+
+    let installed_size = create_stats("Installed Size", &installed_size);
     let distfiles_cache = create_stats("Distfiles Cache", "12.8 GB");
     let portage_news = create_stats("Portage News", "3 unread");
 
@@ -100,13 +105,35 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
     frame.render_widget(portage_news, splits[2]);
 }
 
+fn human_size(bytes: usize) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+
+    let mut size = bytes as f64;
+    let mut unit = 0;
+
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
+    }
+
+    if unit == 0 {
+        format!("{} {}", bytes, UNITS[unit])
+    } else {
+        format!("{:.1} {}", size, UNITS[unit])
+    }
+}
+
 fn create_stats<'a>(title: &'a str, value: &'a str) -> Paragraph<'a> {
     Paragraph::new(vec![
         Line::from(Span::styled(title, Style::default().bold())),
         Line::from(""),
         Line::from(value),
     ])
-    .block(Block::default().borders(Borders::ALL))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .merge_borders(ratatui::symbols::merge::MergeStrategy::Exact),
+    )
     .alignment(Alignment::Center)
 }
 
@@ -202,8 +229,14 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
         Span::raw(pkg.description.as_deref().unwrap_or("Unknown")),
     ]);
 
+    let size = Line::from_iter([
+        Span::styled("Size: ", bold_style),
+        Span::raw(human_size(pkg.size)),
+    ]);
+
+    let mut lines = vec![maintainer, version, repository, license, description, size];
+
     let mut homepage = homepage_lines(&pkg, bold_style);
-    let mut lines = vec![maintainer, version, repository, license, description];
     lines.append(&mut homepage);
 
     let paragraph = Paragraph::new(lines)

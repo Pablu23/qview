@@ -39,6 +39,10 @@ impl<'a> App<'a> {
         }
     }
 
+    pub fn world_count(&self) -> usize {
+        self.portage.world_packages.len()
+    }
+
     pub fn installed_packages(&self) -> Vec<Package> {
         self.portage.installed_packages.clone()
     }
@@ -50,6 +54,15 @@ impl<'a> App<'a> {
         };
 
         self.portage.installed_packages[selected_package_index].clone()
+    }
+
+    pub fn total_installed_size(&self) -> usize {
+        self.portage
+            .installed_packages
+            .clone()
+            .into_iter()
+            .map(|p| p.size)
+            .sum()
     }
 
     pub fn toggle_search_window(&mut self) {

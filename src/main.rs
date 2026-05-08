@@ -37,13 +37,12 @@ fn main() -> color_eyre::Result<()> {
     let mut tui = init_tui()?;
 
     let mut p = Portage::new();
+    p.load_world_packages()?;
     p.load_installed_packages()?;
 
     let mut app = App::new(p);
 
     run(&mut tui, &mut app)?;
-
-    // restore_tui()?;
 
     Ok(())
 }

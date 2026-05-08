@@ -11,6 +11,7 @@ pub struct Package {
     pub description: Option<String>,
     pub homepage: Option<Vec<String>>,
     pub license: Option<String>,
+    pub size: usize,
 }
 
 #[allow(dead_code)]
@@ -19,6 +20,7 @@ impl Package {
         name: String,
         version: String,
         repository: String,
+        size: usize,
         homepage: Option<Vec<String>>,
         license: Option<String>,
         description: Option<String>,
@@ -34,6 +36,7 @@ impl Package {
             description: description,
             homepage: homepage,
             license: license,
+            size,
         }
     }
 }
