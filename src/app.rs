@@ -4,6 +4,12 @@ use ratatui_textarea::TextArea;
 use crate::gentoo::{Package, portage::Portage};
 
 #[derive(Debug)]
+pub enum ViewState {
+    Dashboard,
+    InstalledPackages,
+}
+
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct App<'a> {
     portage: Portage,
@@ -14,6 +20,7 @@ pub struct App<'a> {
     search_indexes: Option<Vec<usize>>,
     pub search_indexes_len: Option<usize>,
     pub current_search_index: Option<usize>,
+    pub view: ViewState,
 }
 
 #[allow(dead_code)]
@@ -28,6 +35,7 @@ impl<'a> App<'a> {
             search_indexes: None,
             current_search_index: None,
             search_indexes_len: None,
+            view: ViewState::Dashboard,
         }
     }
 
@@ -48,6 +56,13 @@ impl<'a> App<'a> {
         self.showing_search_window = !self.showing_search_window;
         self.textarea.clear();
         self.search_found = None;
+    }
+
+    pub fn cycle_current_tab(&mut self) {
+        match self.view {
+            ViewState::Dashboard => self.view = ViewState::InstalledPackages,
+            ViewState::InstalledPackages => self.view = ViewState::Dashboard,
+        }
     }
 
     pub fn search(&mut self) -> bool {

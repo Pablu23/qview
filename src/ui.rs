@@ -1,15 +1,116 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout},
     prelude::Rect,
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::app::App;
+use crate::{app::App, gentoo::Package};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
+    match app.view {
+        crate::app::ViewState::Dashboard => render_dashboard(frame, app),
+        crate::app::ViewState::InstalledPackages => render_installed_packages(frame, app),
+    }
+}
+
+fn render_dashboard(frame: &mut Frame, app: &mut App) {
+    let logo = "
+ ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
+██╔═══██╗██║   ██║██║██╔════╝██║    ██║
+██║   ██║██║   ██║██║█████╗  ██║ █╗ ██║
+██║▄▄ ██║╚██╗ ██╔╝██║██╔══╝  ██║███╗██║
+╚██████╔╝ ╚████╔╝ ██║███████╗╚███╔███╔╝
+ ╚══▀▀═╝   ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
+        gentoo portage dashboard
+        ";
+
+    let constraints = [
+        Constraint::Length(9),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Percentage(10),
+        Constraint::Fill(1),
+        Constraint::Length(3),
+    ];
+
+    let layout = Layout::vertical(constraints);
+
+    let [
+        logo_top,
+        top_stats,
+        middle_stats,
+        bottom_stats,
+        _fill,
+        key_hints,
+    ] = frame.area().layout(&layout);
+
+    let splits = Layout::horizontal([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .split(top_stats);
+
+    let logo = Paragraph::new(logo);
+    frame.render_widget(logo, logo_top);
+
+    let keys = Paragraph::new("(q) to quit | (tab) to switch tabs".fg(Color::Yellow))
+        .block(Block::default().borders(Borders::ALL));
+    frame.render_widget(keys, key_hints);
+
+    let installed_packages_len = app.installed_packages().len().to_string();
+    let installed_packages = create_stats("Installed Packages", installed_packages_len.as_str());
+    let global_use_flags = create_stats("Global USE Flags", "126");
+    let repository_state = create_stats("Repository state", "synced 2h ago");
+    frame.render_widget(installed_packages, splits[0]);
+    frame.render_widget(global_use_flags, splits[1]);
+    frame.render_widget(repository_state, splits[2]);
+
+    let splits = Layout::horizontal([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .split(middle_stats);
+
+    let world_packages = create_stats("World Packages", "203");
+    let pending_updates = create_stats("Pending Updates", "16");
+    let last_emerge = create_stats("Last Emerge", "11:24 today");
+
+    frame.render_widget(world_packages, splits[0]);
+    frame.render_widget(pending_updates, splits[1]);
+    frame.render_widget(last_emerge, splits[2]);
+
+    let splits = Layout::horizontal([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .split(bottom_stats);
+
+    let installed_size = create_stats("Installed Size", "38.2 GB");
+    let distfiles_cache = create_stats("Distfiles Cache", "12.8 GB");
+    let portage_news = create_stats("Portage News", "3 unread");
+
+    frame.render_widget(installed_size, splits[0]);
+    frame.render_widget(distfiles_cache, splits[1]);
+    frame.render_widget(portage_news, splits[2]);
+}
+
+fn create_stats<'a>(title: &'a str, value: &'a str) -> Paragraph<'a> {
+    Paragraph::new(vec![
+        Line::from(Span::styled(title, Style::default().bold())),
+        Line::from(""),
+        Line::from(value),
+    ])
+    .block(Block::default().borders(Borders::ALL))
+    .alignment(Alignment::Center)
+}
+
+fn render_installed_packages(frame: &mut Frame, app: &mut App) {
     let constraints = [Constraint::Fill(1), Constraint::Length(3)];
 
     let layout = Layout::vertical(constraints);
@@ -83,12 +184,12 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
 
     let version = Line::from_iter([
         Span::styled("Version: ", bold_style),
-        Span::raw(pkg.version),
+        Span::raw(&pkg.version),
     ]);
 
     let repository = Line::from_iter([
         Span::styled("Repository: ", bold_style),
-        Span::raw(pkg.repository),
+        Span::raw(&pkg.repository),
     ]);
 
     let license = Line::from_iter([
@@ -101,24 +202,25 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
         Span::raw(pkg.description.as_deref().unwrap_or("Unknown")),
     ]);
 
-    // let homepage = Line::from_iter([
-    //     Span::styled("Homepage: ", bold_style),
-    //     Span::styled(
-    //         pkg.homepage.as_deref().unwrap_or("Unknown"),
-    //         Style::default().fg(Color::LightBlue),
-    //     ),
-    // ]);
+    let mut homepage = homepage_lines(&pkg, bold_style);
+    let mut lines = vec![maintainer, version, repository, license, description];
+    lines.append(&mut homepage);
 
+    let paragraph = Paragraph::new(lines)
+        .block(Block::default().title("Metadata").borders(Borders::ALL))
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(paragraph, area);
+}
+
+fn homepage_lines(pkg: &Package, bold_style: Style) -> Vec<Line<'_>> {
     let mut lines = Vec::new();
-
-    // First line: label
     lines.push(Line::from(vec![
         Span::styled("Homepage: ", bold_style),
         Span::raw(""),
     ]));
 
-    // Following lines: one URL per line, indented
-    if let Some(homepages) = pkg.homepage {
+    if let Some(homepages) = &pkg.homepage {
         for url in homepages.into_iter().filter(|s| !s.is_empty()) {
             lines.push(Line::from(vec![
                 Span::raw("  - "), // indentation
@@ -137,15 +239,7 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
         ]));
     }
 
-    let mut homepage = lines;
-    let mut lines = vec![maintainer, version, repository, license, description];
-    lines.append(&mut homepage);
-
-    let paragraph = Paragraph::new(lines)
-        .block(Block::default().title("Metadata").borders(Borders::ALL))
-        .wrap(Wrap { trim: false });
-
-    frame.render_widget(paragraph, area);
+    return lines;
 }
 
 fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {

@@ -15,6 +15,8 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                 KeyCode::Char('n') => app.next_search(),
                 KeyCode::Char('N') => app.prev_search(),
 
+                KeyCode::Tab => app.cycle_current_tab(),
+
                 KeyCode::Char('d') => match key.modifiers {
                     KeyModifiers::CONTROL => app
                         .list_state
