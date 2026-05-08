@@ -121,7 +121,7 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &mut App) {
     if let Some(homepages) = pkg.homepage {
         for url in homepages.into_iter().filter(|s| !s.is_empty()) {
             lines.push(Line::from(vec![
-                Span::raw("  "), // indentation
+                Span::raw("  - "), // indentation
                 Span::styled(
                     url,
                     Style::default()
