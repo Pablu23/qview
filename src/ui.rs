@@ -63,8 +63,8 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
 
     let installed_packages_len = app.installed_packages().len().to_string();
     let installed_packages = create_stats("Installed Packages", installed_packages_len.as_str());
-    let global_use_flags = create_stats("Global USE Flags", "126");
-    let repository_state = create_stats("Repository state", "synced 2h ago");
+    let global_use_flags = create_stats("Global USE Flags", "COMING SOON");
+    let repository_state = create_stats("Repository state", "COMING SOON");
     frame.render_widget(installed_packages, splits[0]);
     frame.render_widget(global_use_flags, splits[1]);
     frame.render_widget(repository_state, splits[2]);
@@ -79,8 +79,8 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
 
     let world_package_count = app.world_count().to_string();
     let world_packages = create_stats("World Packages", &world_package_count);
-    let pending_updates = create_stats("Pending Updates", "16");
-    let last_emerge = create_stats("Last Emerge", "11:24 today");
+    let pending_updates = create_stats("Pending Updates", "COMING SOON");
+    let last_emerge = create_stats("Last Emerge", "COMING SOON");
 
     frame.render_widget(world_packages, splits[0]);
     frame.render_widget(pending_updates, splits[1]);
@@ -97,8 +97,8 @@ fn render_dashboard(frame: &mut Frame, app: &mut App) {
     let installed_size = human_size(app.total_installed_size());
 
     let installed_size = create_stats("Installed Size", &installed_size);
-    let distfiles_cache = create_stats("Distfiles Cache", "12.8 GB");
-    let portage_news = create_stats("Portage News", "3 unread");
+    let distfiles_cache = create_stats("Distfiles Cache", "COMING SOON");
+    let portage_news = create_stats("Portage News", "COMING SOON");
 
     frame.render_widget(installed_size, splits[0]);
     frame.render_widget(distfiles_cache, splits[1]);
@@ -254,7 +254,7 @@ fn homepage_lines(pkg: &Package, bold_style: Style) -> Vec<Line<'_>> {
     ]));
 
     if let Some(homepages) = &pkg.homepage {
-        for url in homepages.into_iter().filter(|s| !s.is_empty()) {
+        for url in homepages.iter().filter(|s| !s.is_empty()) {
             lines.push(Line::from(vec![
                 Span::raw("  - "), // indentation
                 Span::styled(
@@ -272,7 +272,7 @@ fn homepage_lines(pkg: &Package, bold_style: Style) -> Vec<Line<'_>> {
         ]));
     }
 
-    return lines;
+    lines
 }
 
 fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
@@ -311,7 +311,7 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
 fn render_use_flags(frame: &mut Frame, area: Rect, app: &mut App) {
     let selected_package = app.current_package();
 
-    let items = selected_package.use_flags.into_iter().map(|x| {
+    let items = selected_package.use_flags.iter().map(|x| {
         let color = if x.enabled {
             Color::Green
         } else if x.default {
@@ -326,7 +326,7 @@ fn render_use_flags(frame: &mut Frame, area: Rect, app: &mut App) {
             Style::default().fg(color)
         };
 
-        ListItem::new(x.name).style(text_style)
+        ListItem::new(x.name.clone()).style(text_style)
     });
     let list = List::new(items)
         .style(Color::White)

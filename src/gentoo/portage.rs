@@ -4,7 +4,7 @@ use quick_xml::{Reader, events::Event};
 
 use crate::gentoo::{Package, UseFlag};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Portage {
     pub installed_packages: Vec<Package>,
     pub world_packages: Vec<String>,
@@ -111,9 +111,9 @@ impl Portage {
                 let use_flags: Vec<UseFlag> = iuse_flags
                     .iter()
                     .filter(|x| !x.trim().is_empty())
-                    .map(|&iuse| {
-                        let is_default = iuse.starts_with("+");
-                        let iuse = iuse.strip_prefix("+").unwrap_or(iuse);
+                    .map(|&original_iuse| {
+                        let iuse = original_iuse.strip_prefix("+").unwrap_or(original_iuse);
+                        let is_default = iuse != original_iuse;
 
                         let is_active = use_flags.contains(&iuse);
 

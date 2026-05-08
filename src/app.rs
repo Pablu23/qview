@@ -5,12 +5,11 @@ use crate::gentoo::{Package, portage::Portage};
 
 #[derive(Debug)]
 pub enum ViewState {
-    Dashboard,
-    InstalledPackages,
+    Dashboard = 0,
+    InstalledPackages = 1,
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct App<'a> {
     portage: Portage,
     pub list_state: ListState,
@@ -23,7 +22,6 @@ pub struct App<'a> {
     pub view: ViewState,
 }
 
-#[allow(dead_code)]
 impl<'a> App<'a> {
     pub fn new(portage: Portage) -> Self {
         App {
@@ -43,26 +41,21 @@ impl<'a> App<'a> {
         self.portage.world_packages.len()
     }
 
-    pub fn installed_packages(&self) -> Vec<Package> {
-        self.portage.installed_packages.clone()
+    pub fn installed_packages(&self) -> &[Package] {
+        &self.portage.installed_packages
     }
 
-    pub fn current_package(&self) -> Package {
+    pub fn current_package(&self) -> &Package {
         let selected_package_index = match self.list_state.selected() {
             Some(selected) => selected,
             None => 0,
         };
 
-        self.portage.installed_packages[selected_package_index].clone()
+        &self.portage.installed_packages[selected_package_index]
     }
 
     pub fn total_installed_size(&self) -> usize {
-        self.portage
-            .installed_packages
-            .clone()
-            .into_iter()
-            .map(|p| p.size)
-            .sum()
+        self.portage.installed_packages.iter().map(|p| p.size).sum()
     }
 
     pub fn toggle_search_window(&mut self) {
@@ -93,14 +86,16 @@ impl<'a> App<'a> {
             .collect();
 
         if let Some(index) = indexes.first() {
-            self.list_state.select(Some(index.clone()));
+            self.list_state.select(Some(*index));
             self.search_indexes_len = Some(indexes.len());
             self.search_indexes = Some(indexes);
             self.current_search_index = Some(0);
+
             return true;
         }
 
         self.search_indexes = None;
+
         return false;
     }
 

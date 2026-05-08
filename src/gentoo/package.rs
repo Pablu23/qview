@@ -28,14 +28,14 @@ impl Package {
         use_flags: Vec<UseFlag>,
     ) -> Self {
         Package {
-            name: name,
-            use_flags: use_flags,
-            version: version,
-            repository: repository,
-            maintainer: maintainer,
-            description: description,
-            homepage: homepage,
-            license: license,
+            name,
+            use_flags,
+            version,
+            repository,
+            maintainer,
+            description,
+            homepage,
+            license,
             size,
         }
     }
