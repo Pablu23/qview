@@ -85,25 +85,37 @@ impl Portage {
         let categories = fs::read_dir("/var/db/pkg")?;
 
         for category in categories {
-            let category = category.unwrap();
+            let category = match category {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
             let cat_name = category.file_name();
             let pkgs = fs::read_dir(category.path())?;
             for pkg in pkgs {
-                let pkg = pkg.unwrap();
+                let pkg = match pkg {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+
                 let pkg_name = pkg.file_name();
-                let pkg_name = pkg_name.to_str().unwrap();
+                let pkg_name = match pkg_name.to_str() {
+                    Some(n) => n,
+                    None => continue,
+                };
+
                 let (pkg_name, pkg_version) = split_pkg(pkg_name);
 
                 let use_flags_file = fs::read(pkg.path().join("USE"))?;
                 let use_flags: Vec<&str> = str::from_utf8(&use_flags_file)
-                    .unwrap()
+                    .unwrap_or_default()
                     .trim()
                     .split(' ')
                     .collect();
 
                 let iuse_flags_file = fs::read(pkg.path().join("IUSE"))?;
                 let iuse_flags: Vec<&str> = str::from_utf8(&iuse_flags_file)
-                    .unwrap()
+                    .unwrap_or_default()
                     .trim()
                     .split(' ')
                     .collect();
@@ -150,14 +162,14 @@ impl Portage {
 
                 let repo_path = PathBuf::from("/var/db/repos/")
                     .join(&repository)
-                    .join(cat_name.to_str().unwrap())
+                    .join(cat_name.to_str().unwrap_or_default())
                     .join(pkg_name)
                     .join("metadata.xml");
 
                 let maintainer = extract_maintainer(&repo_path)?;
 
                 self.installed_packages.push(Package::new(
-                    format!("{}/{}", cat_name.to_str().unwrap(), pkg_name),
+                    format!("{}/{}", cat_name.to_str().unwrap_or_default(), pkg_name),
                     pkg_version.unwrap().into(),
                     repository,
                     size,
