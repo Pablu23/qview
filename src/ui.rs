@@ -5,13 +5,15 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Spacing},
     prelude::Rect,
     style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
-use crate::{app::App, gentoo::Package};
+use crate::{app::App, gentoo::Package, theme::Theme};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
+    frame.render_widget(Block::default().bg(Theme::BG), frame.area());
+
     match app.view {
         crate::app::ViewState::Dashboard => render_dashboard(frame, app),
         crate::app::ViewState::InstalledPackages => render_installed_packages(frame, app),
@@ -20,14 +22,14 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
 fn render_dashboard(frame: &mut Frame, app: &App) {
     let logo = "
- ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
-██╔═══██╗██║   ██║██║██╔════╝██║    ██║
-██║   ██║██║   ██║██║█████╗  ██║ █╗ ██║
-██║▄▄ ██║╚██╗ ██╔╝██║██╔══╝  ██║███╗██║
-╚██████╔╝ ╚████╔╝ ██║███████╗╚███╔███╔╝
- ╚══▀▀═╝   ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
-        gentoo portage dashboard
-        ";
+     ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
+    ██╔═══██╗██║   ██║██║██╔════╝██║    ██║
+    ██║   ██║██║   ██║██║█████╗  ██║ █╗ ██║
+    ██║▄▄ ██║╚██╗ ██╔╝██║██╔══╝  ██║███╗██║
+    ╚██████╔╝ ╚████╔╝ ██║███████╗╚███╔███╔╝
+     ╚══▀▀═╝   ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
+            gentoo portage dashboard
+            ";
 
     let constraints = [
         Constraint::Length(9),
@@ -56,11 +58,18 @@ fn render_dashboard(frame: &mut Frame, app: &App) {
     .spacing(Spacing::Overlap(1))
     .split(stats_top);
 
-    let logo = Paragraph::new(logo);
+    let logo = Paragraph::new(Text::styled(logo, Theme::title()));
     frame.render_widget(logo, logo_top);
 
-    let keys = Paragraph::new("(q) to quit | (tab) to switch tabs".fg(Color::Yellow))
-        .block(Block::default().borders(Borders::ALL));
+    let keys = Paragraph::new(Span::styled(
+        "(q) to quit | (tab) to switch tabs",
+        Theme::muted(),
+    ))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Theme::block()),
+    );
     frame.render_widget(keys, key_hints);
 
     let installed_packages_len = app.installed_packages().len().to_string();
@@ -127,15 +136,17 @@ fn human_size(bytes: usize) -> String {
 
 fn create_stats<'a>(title: &'a str, value: &'a str) -> Paragraph<'a> {
     Paragraph::new(vec![
-        Line::from(Span::styled(title, Style::default().bold())),
+        Line::from(Span::styled(title, Theme::title())),
         Line::from(""),
         Line::from(value),
     ])
     .block(
         Block::default()
             .borders(Borders::ALL)
+            .border_style(Theme::block())
             .merge_borders(ratatui::symbols::merge::MergeStrategy::Exact),
     )
+    .style(Theme::text())
     .alignment(Alignment::Center)
 }
 
@@ -171,32 +182,43 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
         main_key_hint
     };
 
-    let key_hint = Span::styled(text, Style::default().fg(Color::Yellow));
+    let key_hint = Span::styled(text, Theme::muted());
 
-    let key_notes_footer =
-        Paragraph::new(Line::from(key_hint)).block(Block::default().borders(Borders::ALL));
+    let key_notes_footer = Paragraph::new(Line::from(key_hint)).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Theme::block()),
+    );
     frame.render_widget(key_notes_footer, bottom);
 
     if app.showing_search_window {
         let mut popup_block = Block::default()
             .title("Search")
             .borders(Borders::ALL)
-            .border_type(ratatui::widgets::BorderType::Rounded);
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(Theme::block())
+            .style(Style::default().bg(Theme::BG));
 
         if let Some(found) = app.search_found {
             if found {
-                popup_block = popup_block.border_style(Style::default().fg(Color::Green));
+                popup_block = popup_block.border_style(Theme::success());
             } else {
-                popup_block = popup_block.border_style(Style::default().fg(Color::Red));
+                popup_block = popup_block.border_style(Theme::error());
             }
         }
 
         app.textarea.set_block(popup_block);
-        app.textarea.set_style(Style::default().fg(Color::Yellow));
+        app.textarea.set_style(Theme::muted());
         app.textarea.set_cursor_line_style(Style::default());
 
         let area = search_popup_rect(70, frame.area());
+
+        frame.render_widget(
+            Block::default().style(Style::default().bg(Theme::BG).add_modifier(Modifier::DIM)),
+            frame.area(),
+        );
         frame.render_widget(Clear, area);
+        frame.render_widget(Block::default().style(Style::default().bg(Theme::BG)), area);
         frame.render_widget(&app.textarea, area);
     }
 }
@@ -204,7 +226,7 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
 fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
     let pkg = app.current_package();
 
-    let bold_style = Style::default().add_modifier(Modifier::BOLD);
+    let bold_style = Theme::title(); //Style::default().add_modifier(Modifier::BOLD);
     let maintainer = Line::from_iter([
         Span::styled("Maintainer: ", bold_style),
         Span::raw(pkg.maintainer.as_deref().unwrap_or("Unknown")),
@@ -241,7 +263,12 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
     lines.append(&mut homepage);
 
     let paragraph = Paragraph::new(lines)
-        .block(Block::default().title("Metadata").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title("Metadata")
+                .borders(Borders::ALL)
+                .border_style(Theme::block()),
+        )
         .wrap(Wrap { trim: false });
 
     frame.render_widget(paragraph, area);
@@ -303,11 +330,12 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
 
     let list = List::new(items)
         .style(Color::White)
-        .highlight_style(Modifier::REVERSED)
+        .highlight_style(Theme::selected())
         .highlight_symbol("> ")
         .block(
-            Block::new()
+            Block::default()
                 .borders(Borders::ALL)
+                .border_style(Theme::block())
                 .title("Installed packages"),
         );
 
@@ -318,18 +346,18 @@ fn render_use_flags(frame: &mut Frame, area: Rect, app: &App) {
     let selected_package = app.current_package();
 
     let items = selected_package.use_flags.iter().map(|x| {
-        let color = if x.enabled {
-            Color::Green
+        let text_style = if x.enabled {
+            Theme::success()
         } else if x.default {
-            Color::Blue
+            Theme::info()
         } else {
-            Color::Red
+            Theme::error()
         };
 
         let text_style = if x.default {
-            Style::default().add_modifier(Modifier::ITALIC).fg(color)
+            text_style.add_modifier(Modifier::ITALIC)
         } else {
-            Style::default().fg(color)
+            text_style
         };
 
         ListItem::new(x.name.clone()).style(text_style)
@@ -338,7 +366,12 @@ fn render_use_flags(frame: &mut Frame, area: Rect, app: &App) {
         .style(Color::White)
         .scroll_padding(1)
         .direction(ratatui::widgets::ListDirection::TopToBottom)
-        .block(Block::new().borders(Borders::ALL).title("USE Flags"));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("USE Flags")
+                .border_style(Theme::block()),
+        );
 
     let mut list_state = ListState::default();
     list_state.select_first();

@@ -1,6 +1,7 @@
 mod app;
 mod event;
 mod gentoo;
+mod theme;
 mod ui;
 
 use std::{
