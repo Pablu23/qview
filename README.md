@@ -29,6 +29,8 @@ Built with Rust and Ratatui.
 
 ## Screenshots
 
+Ui changes kind of frequently right now, take these with a grain of salt
+
 ### Dashboard
 
 ![Dashboard](.github/images/qview-dashboard.png)
