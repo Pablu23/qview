@@ -5,22 +5,47 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Spacing},
     prelude::Rect,
     style::{Color, Modifier, Style, Stylize},
+    symbols,
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Tabs, Wrap},
 };
 
-use crate::{app::App, gentoo::Package, theme::Theme};
+use crate::{
+    app::{App, ViewState},
+    gentoo::Package,
+    theme::Theme,
+};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     frame.render_widget(Block::default().bg(Theme::BG), frame.area());
 
+    let layout = Layout::vertical(vec![Constraint::Length(3), Constraint::Fill(1)]);
+    let [tab_bar, rest] = frame.area().layout(&layout);
+
+    render_tab(frame, tab_bar, &app.view);
+
     match app.view {
-        crate::app::ViewState::Dashboard => render_dashboard(frame, app),
-        crate::app::ViewState::InstalledPackages => render_installed_packages(frame, app),
+        crate::app::ViewState::Dashboard => render_dashboard(frame, rest, app),
+        crate::app::ViewState::InstalledPackages => render_installed_packages(frame, rest, app),
     }
 }
 
-fn render_dashboard(frame: &mut Frame, app: &App) {
+fn render_tab(frame: &mut Frame, area: Rect, selected_tab: &ViewState) {
+    let selected_index = match selected_tab {
+        ViewState::Dashboard => 0,
+        ViewState::InstalledPackages => 1,
+    };
+
+    let tabs = Tabs::new(vec!["Dashboard", "Installed", "Search"])
+        .block(Block::default().borders(Borders::ALL).style(Theme::block()))
+        .highlight_style(Theme::success())
+        .select(selected_index)
+        .divider(symbols::DOT)
+        .padding(" ", " ");
+    frame.render_widget(tabs, area);
+}
+
+fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
     let logo = "
      ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
     ██╔═══██╗██║   ██║██║██╔════╝██║    ██║
@@ -40,7 +65,7 @@ fn render_dashboard(frame: &mut Frame, app: &App) {
 
     let layout = Layout::vertical(constraints);
 
-    let [logo_top, stats, _fill, key_hints] = frame.area().layout(&layout);
+    let [logo_top, stats, _fill, key_hints] = area.layout(&layout);
 
     let [stats_top, stats_middle, stats_bottom] = Layout::vertical([
         Constraint::Fill(1),
@@ -150,11 +175,11 @@ fn create_stats<'a>(title: &'a str, value: &'a str) -> Paragraph<'a> {
     .alignment(Alignment::Center)
 }
 
-fn render_installed_packages(frame: &mut Frame, app: &mut App) {
+fn render_installed_packages(frame: &mut Frame, area: Rect, app: &mut App) {
     let constraints = [Constraint::Fill(1), Constraint::Length(3)];
 
     let layout = Layout::vertical(constraints);
-    let [top, bottom] = frame.area().layout(&layout);
+    let [top, bottom] = area.layout(&layout);
 
     let split =
         Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).split(top);
@@ -211,7 +236,7 @@ fn render_installed_packages(frame: &mut Frame, app: &mut App) {
         app.textarea.set_style(Theme::muted());
         app.textarea.set_cursor_line_style(Style::default());
 
-        let area = search_popup_rect(70, frame.area());
+        let area = search_popup_rect(70, area);
 
         frame.render_widget(
             Block::default().style(Style::default().bg(Theme::BG).add_modifier(Modifier::DIM)),

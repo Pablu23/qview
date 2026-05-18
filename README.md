@@ -48,6 +48,16 @@ Ui changes kind of frequently right now, take these with a grain of salt
 
 ## Installation
 
+### Gentoo (via guru overlay)
+
+qview is available as an ebuild in the official [Gentoo guru overlay](https://wiki.gentoo.org/wiki/Project:GURU).
+
+Install with:
+
+```bash
+emerge app-misc/qview
+```
+
 ### Build from source
 
 Requirements:
