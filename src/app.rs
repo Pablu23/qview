@@ -1,17 +1,19 @@
 use ratatui::widgets::ListState;
 use ratatui_textarea::TextArea;
 
-use crate::gentoo::{Package, portage::Portage};
+use crate::gentoo::{InstalledPackage, portage::Portage};
 
 #[derive(Debug)]
 pub enum ViewState {
     Dashboard = 0,
     InstalledPackages = 1,
+    AvailablePackages = 2,
 }
 
 #[derive(Debug)]
 pub struct App<'a> {
     portage: Portage,
+
     pub list_state: ListState,
     pub showing_search_window: bool,
     pub textarea: TextArea<'a>,
@@ -41,11 +43,11 @@ impl App<'_> {
         self.portage.world_packages.len()
     }
 
-    pub fn installed_packages(&self) -> &[Package] {
+    pub fn installed_packages(&self) -> &[InstalledPackage] {
         &self.portage.installed_packages
     }
 
-    pub fn current_package(&self) -> &Package {
+    pub fn current_package(&self) -> &InstalledPackage {
         let selected_package_index = self.list_state.selected().unwrap_or_default();
         &self.portage.installed_packages[selected_package_index]
     }
@@ -63,7 +65,8 @@ impl App<'_> {
     pub fn cycle_current_tab(&mut self) {
         match self.view {
             ViewState::Dashboard => self.view = ViewState::InstalledPackages,
-            ViewState::InstalledPackages => self.view = ViewState::Dashboard,
+            ViewState::InstalledPackages => self.view = ViewState::AvailablePackages,
+            ViewState::AvailablePackages => self.view = ViewState::Dashboard,
         }
     }
 
@@ -74,7 +77,8 @@ impl App<'_> {
             .iter()
             .enumerate()
             .filter(|(_, s)| {
-                s.name
+                s.atom
+                    .qualified_name()
                     .to_lowercase()
                     .contains(&self.textarea.lines()[0].to_lowercase())
             })

@@ -8,7 +8,14 @@ license = "MIT"
 
 
 [dependencies]
+chrono = "0.4.44"
 color-eyre = "0.6.5"
 quick-xml = "0.39.3"
 ratatui = "0.30.0"
 ratatui-textarea = "0.9.1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true

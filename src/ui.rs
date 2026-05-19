@@ -12,7 +12,7 @@ use ratatui::{
 
 use crate::{
     app::{App, ViewState},
-    gentoo::Package,
+    gentoo::InstalledPackage,
     theme::Theme,
 };
 
@@ -27,6 +27,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     match app.view {
         crate::app::ViewState::Dashboard => render_dashboard(frame, rest, app),
         crate::app::ViewState::InstalledPackages => render_installed_packages(frame, rest, app),
+        crate::app::ViewState::AvailablePackages => {
+            frame.render_widget(Text::from("NOT IMPLEMENTED"), rest)
+        }
     }
 }
 
@@ -34,9 +37,10 @@ fn render_tab(frame: &mut Frame, area: Rect, selected_tab: &ViewState) {
     let selected_index = match selected_tab {
         ViewState::Dashboard => 0,
         ViewState::InstalledPackages => 1,
+        ViewState::AvailablePackages => 2,
     };
 
-    let tabs = Tabs::new(vec!["Dashboard", "Installed", "Search"])
+    let tabs = Tabs::new(vec!["Dashboard", "Installed", "Browse"])
         .block(Block::default().borders(Borders::ALL).style(Theme::block()))
         .highlight_style(Theme::success())
         .select(selected_index)
@@ -58,7 +62,7 @@ fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
 
     let constraints = [
         Constraint::Length(9),
-        Constraint::Percentage(30),
+        Constraint::Min(15),
         Constraint::Fill(1),
         Constraint::Length(3),
     ];
@@ -254,7 +258,7 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
     let bold_style = Theme::title(); //Style::default().add_modifier(Modifier::BOLD);
     let maintainer = Line::from_iter([
         Span::styled("Maintainer: ", bold_style),
-        Span::raw(pkg.maintainer.as_deref().unwrap_or("Unknown")),
+        Span::raw(pkg.metadata.maintainer.as_deref().unwrap_or("Unknown")),
     ]);
 
     let version = Line::from_iter([
@@ -264,17 +268,17 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
 
     let repository = Line::from_iter([
         Span::styled("Repository: ", bold_style),
-        Span::raw(&pkg.repository),
+        Span::raw(&pkg.metadata.repository),
     ]);
 
     let license = Line::from_iter([
         Span::styled("License: ", bold_style),
-        Span::raw(pkg.license.as_deref().unwrap_or("Unknown")),
+        Span::raw(pkg.metadata.license.as_deref().unwrap_or("Unknown")),
     ]);
 
     let description = Line::from_iter([
         Span::styled("Description: ", bold_style),
-        Span::raw(pkg.description.as_deref().unwrap_or("Unknown")),
+        Span::raw(pkg.metadata.description.as_deref().unwrap_or("Unknown")),
     ]);
 
     let size = Line::from_iter([
@@ -282,7 +286,20 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
         Span::raw(human_size(pkg.size)),
     ]);
 
-    let mut lines = vec![maintainer, version, repository, license, description, size];
+    let build_time = Line::from_iter([
+        Span::styled("Build time: ", bold_style),
+        Span::raw(pkg.build_time.to_string()),
+    ]);
+
+    let mut lines = vec![
+        maintainer,
+        version,
+        repository,
+        build_time,
+        license,
+        description,
+        size,
+    ];
 
     let mut homepage = homepage_lines(pkg, bold_style);
     lines.append(&mut homepage);
@@ -299,29 +316,22 @@ fn render_package_metadata(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, area);
 }
 
-fn homepage_lines(pkg: &Package, bold_style: Style) -> Vec<Line<'_>> {
+fn homepage_lines(pkg: &InstalledPackage, bold_style: Style) -> Vec<Line<'_>> {
     let mut lines = Vec::new();
     lines.push(Line::from(vec![
         Span::styled("Homepage: ", bold_style),
         Span::raw(""),
     ]));
 
-    if let Some(homepages) = &pkg.homepage {
-        for url in homepages.iter().filter(|s| !s.is_empty()) {
-            lines.push(Line::from(vec![
-                Span::raw("  - "), // indentation
-                Span::styled(
-                    url,
-                    Style::default()
-                        .fg(Color::LightBlue)
-                        .add_modifier(Modifier::UNDERLINED),
-                ),
-            ]));
-        }
-    } else {
+    for url in pkg.metadata.homepage.iter().filter(|s| !s.is_empty()) {
         lines.push(Line::from(vec![
-            Span::raw("  "),
-            Span::styled("Unknown", Style::default().fg(Color::DarkGray)),
+            Span::raw("  - "), // indentation
+            Span::styled(
+                url,
+                Style::default()
+                    .fg(Color::LightBlue)
+                    .add_modifier(Modifier::UNDERLINED),
+            ),
         ]));
     }
 
@@ -350,7 +360,7 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
     let items: Vec<String> = app
         .installed_packages()
         .iter()
-        .map(|x| x.name.clone())
+        .map(|x| x.atom.qualified_name())
         .collect();
 
     let list = List::new(items)
@@ -370,8 +380,8 @@ fn render_packages(frame: &mut Frame, area: Rect, app: &mut App) {
 fn render_use_flags(frame: &mut Frame, area: Rect, app: &App) {
     let selected_package = app.current_package();
 
-    let items = selected_package.use_flags.iter().map(|x| {
-        let text_style = if x.enabled {
+    let items = selected_package.iuse.iter().map(|x| {
+        let text_style = if selected_package.enabled_use_flags.contains(&x.name) {
             Theme::success()
         } else if x.default {
             Theme::info()

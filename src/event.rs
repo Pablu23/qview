@@ -19,10 +19,26 @@ pub fn handle_event(app: &mut App) -> io::Result<bool> {
                     return Ok(true);
                 }
             }
+            crate::app::ViewState::AvailablePackages => {
+                if handle_available_packages_keybinds(key, app) {
+                    return Ok(true);
+                }
+            }
         }
     }
 
     Ok(false)
+}
+
+fn handle_available_packages_keybinds(key: KeyEvent, app: &mut App<'_>) -> bool {
+    match key.code {
+        KeyCode::Char('q') => return true,
+        KeyCode::Tab => app.cycle_current_tab(),
+
+        _ => {}
+    }
+
+    false
 }
 
 fn handle_search_keybinds(key: KeyEvent, app: &mut App) {

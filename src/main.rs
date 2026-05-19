@@ -38,8 +38,10 @@ fn main() -> color_eyre::Result<()> {
     let mut tui = init_tui()?;
 
     let mut p = Portage::new();
-    p.load_world_packages()?;
-    p.load_installed_packages()?;
+    p.world_packages = Portage::load_world_packages()?;
+
+    p.installed_packages = Portage::load_installed_packages()?;
+    p.load_available_packages()?;
 
     let mut app = App::new(p);
 

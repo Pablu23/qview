@@ -141,23 +141,28 @@ nix develop
 
 ---
 
-## Planned Features
+## Roadmap
 
 The project is still early in development. Planned features include:
-* Public Gentoo ebuild
-* Async package metadata loading
-* Portage news reader
-* Portage package search/browser
-* Filtering installed packages
-  * World packages
-  * Explicitly installed packages
-  * Repository filters
-  * USE flag filters
-* Improved dashboard statistics
-* Search improvements
-* Better package metadata rendering
-* Sorting options
-* Performance improvements for large systems
+- [x] Public guru ebuild
+- [ ] Portage package search/browser
+- [ ] Improved information in package metadata
+  - [ ] RDEPEND
+  - [ ] BDEPEND
+  - [ ] SLOT
+  - [ ] Keywords
+  - [ ] New version available?
+- [ ] Filtering installed packages
+  - [ ] World packages
+  - [ ] Explicitly installed packages
+  - [ ] Repository filters
+  - [ ] USE flag filters
+- [ ] Better package USE Flag rendering
+- [ ] Improved dashboard statistics
+- [ ] Portage news reader
+- [ ] Search improvements
+- [ ] Sorting options
+- [ ] Async package metadata loading
 
 ---
 
