@@ -5,9 +5,13 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-use crate::{app::App, gentoo::InstalledPackage, theme::Theme};
+use crate::{gentoo::InstalledPackage, theme::Theme};
 
-pub fn render_use_flags(frame: &mut Frame, area: Rect, package: &InstalledPackage) {
+pub fn render_use_flags(frame: &mut Frame, area: Rect, package: Option<&InstalledPackage>) {
+    let Some(package) = package else {
+        return;
+    };
+
     let items = package.iuse.iter().map(|x| {
         let text_style = if package.enabled_use_flags.contains(&x.name) {
             Theme::success()

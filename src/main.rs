@@ -1,6 +1,5 @@
 mod actions;
 mod app;
-mod event;
 mod gentoo;
 mod screens;
 mod theme;
@@ -20,7 +19,10 @@ use ratatui::{
     prelude::CrosstermBackend,
 };
 
-use crate::{app::App, gentoo::Portage};
+use crate::{
+    app::App,
+    gentoo::{Portage, portage_loader},
+};
 
 struct TuiGuard;
 
@@ -37,10 +39,9 @@ fn main() -> color_eyre::Result<()> {
     let tui = init_tui()?;
 
     let mut p = Portage::new();
-    p.world_packages = Portage::load_world_packages()?;
-
-    p.installed_packages = Portage::load_installed_packages()?;
-    p.load_available_packages()?;
+    p.world_packages = portage_loader::load_world_packages()?;
+    p.installed_packages = portage_loader::load_installed_packages()?;
+    // p.available_packages = portage_loader::load_available_packages()?;
 
     let mut app = App::new(p);
 

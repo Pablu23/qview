@@ -12,7 +12,11 @@ use crate::{
     widgets::helpers::{homepage_lines, human_size},
 };
 
-pub fn render_package_metadata(frame: &mut Frame, area: Rect, pkg: &InstalledPackage) {
+pub fn render_package_metadata(frame: &mut Frame, area: Rect, pkg: Option<&InstalledPackage>) {
+    let Some(pkg) = pkg else {
+        return;
+    };
+
     let bold_style = Theme::title(); //Style::default().add_modifier(Modifier::BOLD);
     let maintainer = Line::from_iter([
         Span::styled("Maintainer: ", bold_style),
