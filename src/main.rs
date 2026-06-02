@@ -1,7 +1,7 @@
-mod actions;
 mod app;
 mod gentoo;
 mod screens;
+mod signal;
 mod theme;
 mod widgets;
 

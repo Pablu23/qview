@@ -9,11 +9,11 @@ use ratatui::{
 };
 
 use crate::{
-    actions::Signal,
     gentoo::portage::Portage,
     screens::{
         dashboard::DashboardScreen, installed_packages::InstalledPackagesScreen, screen::Screen,
     },
+    signal::Signal,
     theme::Theme,
     widgets::tabs::render_tab,
 };

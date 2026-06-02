@@ -9,9 +9,9 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 use crate::{
-    actions::Signal,
     gentoo::{InstalledPackage, Portage},
     screens::screen::Screen,
+    signal::Signal,
     theme::Theme,
     widgets::{
         helpers::search_popup_rect, package_metadata::render_package_metadata,
@@ -142,7 +142,7 @@ impl Screen for InstalledPackagesScreen {
         let text = if self.search_popup.visible {
             "(esc) to quit search | (enter) to search".to_string()
         } else {
-            let mut main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
+            let main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
             // if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len)
             // {
             //     let _ = write!(

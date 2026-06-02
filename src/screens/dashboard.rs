@@ -5,7 +5,10 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::{actions::Signal, screens::screen::Screen, theme::Theme, widgets::helpers::human_size};
+use crate::{
+    gentoo::Portage, screens::screen::Screen, signal::Signal, theme::Theme,
+    widgets::helpers::human_size,
+};
 
 #[derive(Debug, Default)]
 pub struct DashboardScreen {}
@@ -129,11 +132,7 @@ impl Screen for DashboardScreen {
         frame.render_widget(portage_news, splits[2]);
     }
 
-    fn update(
-        &mut self,
-        key: ratatui::crossterm::event::KeyEvent,
-        _: &crate::gentoo::Portage,
-    ) -> Option<crate::actions::Signal> {
+    fn update(&mut self, key: ratatui::crossterm::event::KeyEvent, _: &Portage) -> Option<Signal> {
         match key.code {
             KeyCode::Char('q') => Some(Signal::Quit),
             KeyCode::Tab => Some(Signal::CycleTab),

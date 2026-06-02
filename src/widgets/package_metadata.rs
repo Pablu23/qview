@@ -6,7 +6,6 @@ use ratatui::{
 };
 
 use crate::{
-    app::App,
     gentoo::InstalledPackage,
     theme::Theme,
     widgets::helpers::{homepage_lines, human_size},
