@@ -105,42 +105,6 @@ nix develop
 
 ---
 
-## Usage
-
-### Keybinds
-
-#### Global
-
-| Key   | Action       |
-| ----- | ------------ |
-| `q`   | Quit         |
-| `Tab` | Switch views |
-
----
-
-### Installed Packages View
-
-| Key      | Action                 |
-| -------- | ---------------------- |
-| `j`      | Move down              |
-| `k`      | Move up                |
-| `/`      | Open search            |
-| `n`      | Next search result     |
-| `N`      | Previous search result |
-| `Ctrl+d` | Scroll down            |
-| `Ctrl+u` | Scroll up              |
-
----
-
-### Search
-
-| Key     | Action         |
-| ------- | -------------- |
-| `Enter` | Confirm search |
-| `Esc`   | Close search   |
-
----
-
 ## Roadmap
 
 The project is still early in development. Planned features include:
@@ -153,32 +117,16 @@ The project is still early in development. Planned features include:
   - [ ] Keywords
   - [ ] New version available?
 - [ ] Filtering installed packages
-  - [ ] World packages
+  - [x] World packages
   - [ ] Explicitly installed packages
   - [ ] Repository filters
   - [ ] USE flag filters
-- [ ] Better package USE Flag rendering
+- [x] Better package USE Flag rendering
 - [ ] Improved dashboard statistics
 - [ ] Portage news reader
 - [ ] Search improvements
 - [ ] Sorting options
 - [ ] Async package metadata loading
-
----
-
-## Project Structure
-
-```text
-src/
-├── app.rs        # Application state and logic
-├── event.rs      # Keyboard/event handling
-├── ui.rs         # Ratatui rendering
-├── main.rs       # Application bootstrap
-└── gentoo/
-    ├── package.rs
-    ├── portage.rs
-    └── useflags.rs
-```
 
 ---
 
