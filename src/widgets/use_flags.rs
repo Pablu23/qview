@@ -2,7 +2,8 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Modifier},
-    widgets::{Block, Borders, List, ListItem, ListState},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
 use crate::{gentoo::InstalledPackage, theme::Theme};
@@ -12,36 +13,53 @@ pub fn render_use_flags(frame: &mut Frame, area: Rect, package: Option<&Installe
         return;
     };
 
-    let items = package.iuse.iter().map(|x| {
-        let text_style = if package.enabled_use_flags.contains(&x.name) {
-            Theme::success()
-        } else if x.default {
-            Theme::info()
-        } else {
-            Theme::error()
-        };
+    let flags: Vec<_> = package.iuse.iter().collect();
 
-        let text_style = if x.default {
-            text_style.add_modifier(Modifier::ITALIC)
-        } else {
-            text_style
-        };
+    let max_len = flags.iter().map(|f| f.name.len()).max().unwrap_or(1);
 
-        ListItem::new(x.name.clone()).style(text_style)
-    });
-    let list = List::new(items)
-        .style(Color::White)
-        .scroll_padding(1)
-        .direction(ratatui::widgets::ListDirection::TopToBottom)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("USE Flags")
-                .border_style(Theme::block()),
-        );
+    // width per column (+ padding between columns)
+    let col_width = max_len as u16 + 3;
 
-    let mut list_state = ListState::default();
-    list_state.select_first();
+    let columns = (area.width / col_width).max(1) as usize;
+    let rows = flags.len().div_ceil(columns);
 
-    frame.render_stateful_widget(list, area, &mut list_state);
+    let mut lines = Vec::new();
+
+    for row in 0..rows {
+        let mut spans = Vec::new();
+
+        for col in 0..columns {
+            let idx = row * columns + col;
+
+            if let Some(flag) = flags.get(idx) {
+                let mut style = if package.enabled_use_flags.contains(&flag.name) {
+                    Theme::success()
+                } else if flag.default {
+                    Theme::info()
+                } else {
+                    Theme::error()
+                };
+
+                if flag.default {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+
+                spans.push(Span::styled(
+                    format!("{:<width$}", flag.name, width = max_len + 2),
+                    style,
+                ));
+            }
+        }
+
+        lines.push(Line::from(spans));
+    }
+
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("USE Flags")
+            .border_style(Theme::block()),
+    );
+
+    frame.render_widget(paragraph, area);
 }

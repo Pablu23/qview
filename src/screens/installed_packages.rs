@@ -9,7 +9,7 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 use crate::{
-    gentoo::{InstalledPackage, Portage},
+    gentoo::{InstalledPackage, Portage, package::PackageKey},
     screens::screen::Screen,
     signal::Signal,
     theme::Theme,
@@ -49,9 +49,8 @@ impl SearchPopup {
         self.textarea.clear();
     }
 
-    pub fn search(&mut self, repo: &Portage) -> Option<usize> {
-        let indexes: Vec<usize> = repo
-            .installed_packages
+    pub fn search(&mut self, packages: Vec<&InstalledPackage>) -> Option<usize> {
+        let indexes: Vec<usize> = packages
             .iter()
             .enumerate()
             .filter(|(_, s)| {
@@ -74,22 +73,27 @@ impl SearchPopup {
 }
 
 #[derive(Debug)]
+enum FilterState {
+    Unfiltered,
+    WorldSet,
+}
+
+#[derive(Debug)]
 pub struct InstalledPackagesScreen {
     list_state: ListState,
+    filter_state: FilterState,
 
     search_popup: SearchPopup,
 }
 
 impl InstalledPackagesScreen {
-    fn render_packages(&mut self, frame: &mut Frame, area: Rect, repo: &Portage) {
-        // TODO: Put this into portage method
-        let items: Vec<String> = repo
-            .installed_packages
-            .iter()
-            .map(|x| x.atom.qualified_name())
-            .collect();
+    fn render_packages(&mut self, frame: &mut Frame, area: Rect, package_keys: Vec<String>) {
+        let title = match self.filter_state {
+            FilterState::Unfiltered => "Installed packages",
+            FilterState::WorldSet => "World packages",
+        };
 
-        let list = List::new(items)
+        let list = List::new(package_keys)
             .style(Color::White)
             .highlight_style(Theme::selected())
             .highlight_symbol("> ")
@@ -97,10 +101,19 @@ impl InstalledPackagesScreen {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(Theme::block())
-                    .title("Installed packages"),
+                    .title(title),
             );
 
         frame.render_stateful_widget(list, area, &mut self.list_state);
+    }
+
+    fn cycle_filter(&mut self) {
+        self.list_state.select(Some(0));
+
+        self.filter_state = match self.filter_state {
+            FilterState::Unfiltered => FilterState::WorldSet,
+            FilterState::WorldSet => FilterState::Unfiltered,
+        }
     }
 }
 
@@ -110,6 +123,7 @@ impl Default for InstalledPackagesScreen {
         list_state.select(Some(0));
         Self {
             list_state: list_state,
+            filter_state: FilterState::Unfiltered,
             search_popup: Default::default(),
         }
     }
@@ -128,14 +142,28 @@ impl Screen for InstalledPackagesScreen {
         let split_vert = Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(split[1]);
 
-        // TODO: Atleast this doesnt crash but its still weird, it should show some Info that this
-        // package is completly unkown or placeholder data, or at best a warning
-        let mut pkg: Option<&InstalledPackage> = None;
-        if repo.installed_packages.len() > self.list_state.selected().unwrap_or(0) {
-            pkg = Some(&repo.installed_packages[self.list_state.selected().unwrap_or(0)]);
-        }
+        // TODO: Dont get repo in here just a list of packages
+        // TODO: Put this into portage method
+        let items: Vec<&PackageKey> = match self.filter_state {
+            FilterState::Unfiltered => repo.installed_packages().iter().map(|x| &x.atom).collect(),
+            FilterState::WorldSet => repo.world_packages().iter().map(|x| &x.atom).collect(),
+        };
 
-        self.render_packages(frame, split[0], repo);
+        // TODO: Atleast this doesnt crash but its still weird, it should show some Info that this
+        // package is completly unkown or placeholder data, or at best a warning, although this
+        // should never really happen on modern gentoo systems, as there will always be atleast one
+        // (this) package installed
+        let selected_package_key = items.get(self.list_state.selected().unwrap_or(0));
+        let pkg: Option<&InstalledPackage> = match selected_package_key {
+            Some(selected_package_key) => repo.get_installed_package_key(selected_package_key),
+            None => None,
+        };
+
+        self.render_packages(
+            frame,
+            split[0],
+            items.iter().map(|x| x.qualified_name()).collect(),
+        );
         render_use_flags(frame, split_vert[0], pkg);
         render_package_metadata(frame, split_vert[1], pkg);
 
@@ -195,10 +223,15 @@ impl Screen for InstalledPackagesScreen {
 
     fn update(&mut self, key: KeyEvent, repo: &Portage) -> Option<Signal> {
         if self.search_popup.visible {
+            let packages = match self.filter_state {
+                FilterState::Unfiltered => repo.installed_packages(),
+                FilterState::WorldSet => repo.world_packages(),
+            };
+
             match key.code {
                 KeyCode::Esc => self.search_popup.toggle(),
                 KeyCode::Enter => {
-                    let result = self.search_popup.search(repo);
+                    let result = self.search_popup.search(packages);
                     self.search_popup.toggle();
 
                     if let Some(index) = result {
@@ -207,7 +240,7 @@ impl Screen for InstalledPackagesScreen {
                 }
                 _ => {
                     self.search_popup.textarea.input_without_shortcuts(key);
-                    let result = self.search_popup.search(repo);
+                    let result = self.search_popup.search(packages);
 
                     if let Some(index) = result {
                         self.list_state.select(Some(index));
@@ -239,8 +272,11 @@ impl Screen for InstalledPackagesScreen {
                     KeyCode::Char('j') => self.list_state.select_next(),
                     KeyCode::Char('k') => self.list_state.select_previous(),
                     KeyCode::Char('/') => self.search_popup.toggle(),
-                    KeyCode::Char('n') => todo!("Next search"),
-                    KeyCode::Char('N') => todo!("prev search"),
+
+                    // TODO: Reimplement searchable "spaces"
+                    // KeyCode::Char('n') => todo!("Next search"),
+                    // KeyCode::Char('N') => todo!("prev search"),
+                    KeyCode::Char('f') => self.cycle_filter(),
 
                     _ => {}
                 },

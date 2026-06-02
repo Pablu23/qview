@@ -1,6 +1,6 @@
 [package]
 name = "qview"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = [ "me@pablu.de" ]
 readme = "README.md"
@@ -9,6 +9,7 @@ license = "MIT"
 
 [dependencies]
 chrono = "0.4.44"
+clap = {version= "4.6.1", features = ["cargo"]}
 color-eyre = "0.6.5"
 quick-xml = "0.39.3"
 ratatui = "0.30.0"

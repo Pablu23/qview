@@ -10,6 +10,7 @@ use std::{
     panic::{set_hook, take_hook},
 };
 
+use clap::command;
 use ratatui::{
     Terminal,
     crossterm::{
@@ -34,14 +35,17 @@ impl Drop for TuiGuard {
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
+
+    // Just for --help and --version right now, later --config and possably more
+    let _ = command!().get_matches();
     let _guard = TuiGuard;
 
     let tui = init_tui()?;
 
-    let mut p = Portage::new();
-    p.world_packages = portage_loader::load_world_packages()?;
-    p.installed_packages = portage_loader::load_installed_packages()?;
+    let world_packages = portage_loader::load_world_packages()?;
+    let installed_packages = portage_loader::load_installed_packages()?;
     // p.available_packages = portage_loader::load_available_packages()?;
+    let p = Portage::new(installed_packages, world_packages, vec![]);
 
     let mut app = App::new(p);
 

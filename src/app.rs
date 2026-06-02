@@ -43,7 +43,7 @@ impl App {
             dashboard_screen: DashboardScreen::default(),
             installed_package_screen: InstalledPackagesScreen::default(),
 
-            view: ViewState::InstalledPackages,
+            view: ViewState::Dashboard,
         }
     }
 

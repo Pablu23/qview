@@ -87,7 +87,7 @@ impl Screen for DashboardScreen {
         );
         frame.render_widget(keys, key_hints);
 
-        let installed_packages_len = repo.installed_packages.len().to_string();
+        let installed_packages_len = repo.installed_packages_len().to_string();
         let installed_packages =
             create_stats("Installed Packages", installed_packages_len.as_str());
         let global_use_flags = create_stats("Global USE Flags", "COMING SOON");
@@ -104,7 +104,7 @@ impl Screen for DashboardScreen {
         .spacing(Spacing::Overlap(1))
         .split(stats_middle);
 
-        let world_package_count = repo.world_packages.len().to_string();
+        let world_package_count = repo.world_packages_len().to_string();
         let world_packages = create_stats("World Packages", &world_package_count);
         let pending_updates = create_stats("Pending Updates", "COMING SOON");
         let last_emerge = create_stats("Last Emerge", "COMING SOON");
