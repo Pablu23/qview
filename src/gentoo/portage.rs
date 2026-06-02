@@ -163,7 +163,7 @@ impl Portage {
                     .join(pkg_name)
                     .join("metadata.xml");
 
-                let maintainer = extract_maintainer(&repo_path)?;
+                let maintainer = extract_maintainer(&repo_path).unwrap_or(None);
 
                 self.installed_packages.push(Package {
                     name: format!("{}/{}", cat_name.to_str().unwrap_or_default(), pkg_name),
