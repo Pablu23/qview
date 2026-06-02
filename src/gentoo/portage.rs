@@ -332,7 +332,7 @@ impl Portage {
                     .and_then(DateTime::from_timestamp_secs)
                     .unwrap_or(DateTime::from_timestamp_nanos(0));
 
-                let maintainer = extract_maintainer(&repo_path)?;
+                let maintainer = extract_maintainer(&repo_path).unwrap_or(None);
 
                 let atom = PackageKey {
                     category: cat_name.clone(),

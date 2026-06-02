@@ -1,8 +1,10 @@
+mod actions;
 mod app;
 mod event;
 mod gentoo;
+mod screens;
 mod theme;
-mod ui;
+mod widgets;
 
 use std::{
     io::{self, Stdout, stdout},
@@ -11,7 +13,6 @@ use std::{
 
 use ratatui::{
     Terminal,
-    backend::Backend,
     crossterm::{
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -19,7 +20,7 @@ use ratatui::{
     prelude::CrosstermBackend,
 };
 
-use crate::{app::App, event::handle_event, gentoo::Portage, ui::ui};
+use crate::{app::App, gentoo::Portage};
 
 struct TuiGuard;
 
@@ -31,11 +32,9 @@ impl Drop for TuiGuard {
 
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
-    init_panic_hook();
-
     let _guard = TuiGuard;
 
-    let mut tui = init_tui()?;
+    let tui = init_tui()?;
 
     let mut p = Portage::new();
     p.world_packages = Portage::load_world_packages()?;
@@ -45,18 +44,15 @@ fn main() -> color_eyre::Result<()> {
 
     let mut app = App::new(p);
 
-    run(&mut tui, &mut app)?;
+    run(tui, &mut app)?;
 
     Ok(())
 }
 
-fn run<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()>
-where
-    io::Error: From<B::Error>,
-{
+fn run(mut terminal: Terminal<CrosstermBackend<Stdout>>, app: &mut App) -> color_eyre::Result<()> {
     loop {
-        terminal.draw(|frame| ui(frame, app))?;
-        let should_exit = handle_event(app)?;
+        terminal.draw(|frame| app.draw(frame))?;
+        let should_exit = app.update()?;
         if should_exit {
             break;
         }
@@ -66,8 +62,9 @@ where
 }
 
 fn init_tui() -> io::Result<ratatui::Terminal<CrosstermBackend<Stdout>>> {
-    enable_raw_mode()?;
     execute!(stdout(), EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    init_panic_hook();
     Terminal::new(CrosstermBackend::new(stdout()))
 }
 
