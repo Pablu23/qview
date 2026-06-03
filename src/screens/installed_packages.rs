@@ -130,7 +130,8 @@ impl Screen for InstalledPackagesScreen {
         let text = if self.search_popup.visible {
             "(esc) to quit search | (enter) to search".to_string()
         } else {
-            let main_key_hint = "(q) to quit | (j) down | (k) up | (/) to search".to_string();
+            let main_key_hint =
+                "(q) to quit | (j) down | (k) up | (f) filter | (/) to search".to_string();
             // if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len)
             // {
             //     let _ = write!(
