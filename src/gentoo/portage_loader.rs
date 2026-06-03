@@ -86,6 +86,53 @@ pub fn load_world_packages() -> color_eyre::Result<HashSet<PackageKey>> {
         .collect())
 }
 
+fn parse_iuse_flags(iuse: &str) -> Vec<UseFlag> {
+    iuse.split_whitespace()
+        .map(|original_iuse| {
+            let iuse = original_iuse.strip_prefix('+').unwrap_or(original_iuse);
+
+            UseFlag {
+                name: iuse.to_string(),
+                default: iuse != original_iuse,
+            }
+        })
+        .collect()
+}
+
+fn metadata_xml_path(repository: &str, category: &str, package: &str) -> PathBuf {
+    PathBuf::from("/var/db/repos/")
+        .join(repository)
+        .join(category)
+        .join(package)
+        .join("metadata.xml")
+}
+
+fn read_optional_string(path: impl AsRef<Path>) -> Option<String> {
+    fs::read_to_string(path).ok().map(|s| s.trim().to_string())
+}
+
+fn read_optional_string_list(path: impl AsRef<Path>) -> Vec<String> {
+    fs::read_to_string(path)
+        .ok()
+        .map(|s| s.split_whitespace().map(ToString::to_string).collect())
+        .unwrap_or_default()
+}
+
+fn insert_package_version(
+    packages: &mut HashMap<PackageKey, Package>,
+    pkg_key: PackageKey,
+    version: PackageVersion,
+) {
+    packages
+        .entry(pkg_key.clone())
+        .or_insert_with(|| Package {
+            atom: pkg_key,
+            versions: Vec::new(),
+        })
+        .versions
+        .push(version);
+}
+
 pub fn load_available_packages() -> color_eyre::Result<Vec<Package>> {
     let repos = fs::read_dir("/var/db/repos/").wrap_err("failed to read /var/db/repos")?;
 
@@ -162,25 +209,10 @@ pub fn load_available_packages() -> color_eyre::Result<Vec<Package>> {
 
                 let iuse: Vec<UseFlag> = data
                     .get("IUSE")
-                    .map(|s| {
-                        s.split_whitespace()
-                            .map(|original_iuse| {
-                                let iuse = original_iuse.strip_prefix("+").unwrap_or(original_iuse);
-
-                                UseFlag {
-                                    name: iuse.to_string(),
-                                    default: iuse != original_iuse,
-                                }
-                            })
-                            .collect()
-                    })
+                    .map(|s| parse_iuse_flags(s))
                     .unwrap_or_default();
 
-                let repo_path = PathBuf::from("/var/db/repos/")
-                    .join(repo_name)
-                    .join(&cat_name)
-                    .join(pkg_name)
-                    .join("metadata.xml");
+                let repo_path = metadata_xml_path(repo_name, &cat_name, pkg_name);
 
                 let maintainer = extract_maintainer(&repo_path).unwrap_or(None);
 
@@ -202,15 +234,7 @@ pub fn load_available_packages() -> color_eyre::Result<Vec<Package>> {
                     name: pkg_name.to_string(),
                 };
 
-                if let Some(package) = packages.get_mut(&pkg_key) {
-                    package.versions.push(version);
-                } else {
-                    let pkg = Package {
-                        atom: pkg_key.clone(),
-                        versions: vec![version],
-                    };
-                    packages.insert(pkg_key, pkg);
-                }
+                insert_package_version(&mut packages, pkg_key, version);
             }
         }
     }
@@ -245,59 +269,28 @@ pub fn load_installed_packages() -> color_eyre::Result<Vec<InstalledPackage>> {
 
             let (pkg_name, pkg_version) = split_pkg(pkg_name);
 
-            let use_flags_file = fs::read_to_string(pkg.path().join("USE"))?;
-            let enabled_use_flags: HashSet<String> = use_flags_file
+            let enabled_use_flags: HashSet<String> = fs::read_to_string(pkg.path().join("USE"))?
                 .split_whitespace()
                 .map(ToString::to_string)
                 .collect();
 
             let iuse_flags_file = fs::read_to_string(pkg.path().join("IUSE"))?;
-
-            let use_flags: Vec<UseFlag> = iuse_flags_file
-                .split_whitespace()
-                .map(|original_iuse| {
-                    let iuse = original_iuse.strip_prefix("+").unwrap_or(original_iuse);
-
-                    UseFlag {
-                        name: iuse.to_string(),
-                        default: iuse != original_iuse,
-                    }
-                })
-                .collect();
+            let use_flags: Vec<UseFlag> = parse_iuse_flags(&iuse_flags_file);
 
             let repository = fs::read_to_string(pkg.path().join("repository"))?
                 .trim()
                 .to_string();
 
-            let homepage: Vec<String> = match fs::read_to_string(pkg.path().join("HOMEPAGE")) {
-                Ok(homepage) => homepage
-                    .split_whitespace()
-                    .map(std::string::ToString::to_string)
-                    .collect(),
-                Err(_) => vec![],
-            };
-
-            let license: Option<String> = match fs::read_to_string(pkg.path().join("LICENSE")) {
-                Ok(license) => Some(license.trim().to_string()),
-                Err(_) => None,
-            };
-
-            let description: Option<String> =
-                match fs::read_to_string(pkg.path().join("DESCRIPTION")) {
-                    Ok(description) => Some(description.trim().to_string()),
-                    Err(_) => None,
-                };
+            let homepage: Vec<String> = read_optional_string_list(pkg.path().join("HOMEPAGE"));
+            let license: Option<String> = read_optional_string(pkg.path().join("LICENSE"));
+            let description: Option<String> = read_optional_string(pkg.path().join("DESCRIPTION"));
 
             let size: usize = fs::read_to_string(pkg.path().join("SIZE"))?
                 .trim()
                 .parse()
                 .unwrap_or(0);
 
-            let repo_path = PathBuf::from("/var/db/repos/")
-                .join(&repository)
-                .join(&cat_name)
-                .join(pkg_name)
-                .join("metadata.xml");
+            let repo_path = metadata_xml_path(&repository, &cat_name, pkg_name);
 
             let build_time = fs::read_to_string(pkg.path().join("BUILD_TIME"))?
                 .trim()
