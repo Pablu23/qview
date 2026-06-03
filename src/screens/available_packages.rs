@@ -11,7 +11,10 @@ use ratatui::{
 
 use crate::{
     app::LoadingState,
-    gentoo::package::{Package, PackageKey, PackageVersion},
+    gentoo::{
+        Portage,
+        package::{Package, PackageKey, PackageVersion},
+    },
     screens::screen::Screen,
     signal::{Event, Signal},
     theme::Theme,
@@ -34,11 +37,14 @@ pub struct AvailablePackagesScreen {
     pkg_list: Option<List<'static>>,
     pkg_list_state: ListState,
 
+    variant_list: Option<List<'static>>,
     variant_list_state: ListState,
 
     loading_state: LoadingState,
 
     search_popup: SearchPopup,
+
+    selected_version: Option<PackageVersion>,
 }
 
 fn version_to_variant(pkg_version: &PackageVersion) -> String {
@@ -56,25 +62,12 @@ impl AvailablePackagesScreen {
         }
     }
 
-    fn render_package_variants(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        variants: Vec<&PackageVersion>,
-    ) {
+    fn render_package_variants(&mut self, frame: &mut Frame, area: Rect) {
         // TODO: Put this into screen, instead of rebuilding the list every frame
-        let list = List::new(variants.iter().map(|v| version_to_variant(v)))
-            .style(Color::White)
-            .highlight_style(Theme::selected())
-            .highlight_symbol("> ")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Theme::block())
-                    .title("Variants"),
-            );
 
-        frame.render_stateful_widget(list, area, &mut self.variant_list_state);
+        if let Some(list) = &self.variant_list {
+            frame.render_stateful_widget(list, area, &mut self.variant_list_state);
+        }
     }
 
     fn cycle_list(&mut self) {
@@ -84,6 +77,39 @@ impl AvailablePackagesScreen {
             CurrentList::PackageList => CurrentList::VariantList,
             CurrentList::VariantList => CurrentList::PackageList,
         }
+    }
+
+    fn build_pkg_version_list(&mut self, repo: &Portage) {
+        let packages: Vec<&PackageKey> =
+            repo.available_packages().iter().map(|x| &x.atom).collect();
+
+        let Some(selected_package_key) = packages.get(self.pkg_list_state.selected().unwrap_or(0))
+        else {
+            return;
+        };
+
+        let Some(pkg) = repo.get_available_package(selected_package_key) else {
+            return;
+        };
+
+        let mut pkg_versions: Vec<&PackageVersion> = pkg.versions.iter().collect();
+        pkg_versions.sort();
+        pkg_versions.reverse();
+
+        self.variant_list = Some(
+            List::new(pkg_versions.iter().map(|v| version_to_variant(v)))
+                .style(Color::White)
+                .highlight_style(Theme::selected())
+                .highlight_symbol("> ")
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Theme::block())
+                        .title("Variants"),
+                ),
+        );
+
+        self.selected_version = Some(pkg.versions[0].clone());
     }
 }
 
@@ -97,11 +123,18 @@ impl Default for AvailablePackagesScreen {
 
         Self {
             chosen_list: CurrentList::PackageList,
+
             pkg_list: None,
             pkg_list_state: list_state,
+
+            variant_list: None,
             variant_list_state: variant_state,
+
             loading_state: LoadingState::Idle,
+
             search_popup: SearchPopup::default(),
+
+            selected_version: None,
         }
     }
 }
@@ -111,7 +144,7 @@ impl Screen for AvailablePackagesScreen {
         &mut self,
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
-        repo: &crate::gentoo::Portage,
+        _repo: &crate::gentoo::Portage,
     ) {
         if !matches!(self.loading_state, LoadingState::Complete) {
             // TODO: Implement loading screen
@@ -130,25 +163,10 @@ impl Screen for AvailablePackagesScreen {
         let [package_list, use_flags] = left.layout(&Layout::vertical(constraints));
         let [package_variants, metadata] = right.layout(&Layout::vertical(constraints));
 
-        let packages: Vec<&PackageKey> =
-            repo.available_packages().iter().map(|x| &x.atom).collect();
-
-        let selected_package_key = packages.get(self.pkg_list_state.selected().unwrap_or(0));
-        let pkg: Option<&Package> = match selected_package_key {
-            Some(pkg_key) => repo.get_available_package(pkg_key),
-            None => None,
-        };
-
         self.render_packages(frame, package_list);
 
-        if let Some(pkg) = pkg {
-            let mut pkg_versions: Vec<&PackageVersion> = pkg.versions.iter().collect();
-            pkg_versions.sort();
-            pkg_versions.reverse();
-
-            self.render_package_variants(frame, package_variants, pkg_versions);
-
-            let selected_version = &pkg.versions[self.variant_list_state.selected().unwrap_or(0)];
+        if let Some(selected_version) = self.selected_version.clone() {
+            self.render_package_variants(frame, package_variants);
 
             render_use_flags(
                 frame,
@@ -204,6 +222,7 @@ impl Screen for AvailablePackagesScreen {
 
                             if let Some(index) = result {
                                 self.pkg_list_state.select(Some(index));
+                                self.build_pkg_version_list(repo);
                             }
                         }
                         _ => {
@@ -214,6 +233,7 @@ impl Screen for AvailablePackagesScreen {
 
                             if let Some(index) = result {
                                 self.pkg_list_state.select(Some(index));
+                                self.build_pkg_version_list(repo);
                             }
                         }
                     }
@@ -228,8 +248,14 @@ impl Screen for AvailablePackagesScreen {
 
                         _ => match self.chosen_list {
                             CurrentList::PackageList => match key.code {
-                                KeyCode::Char('j') => self.pkg_list_state.select_next(),
-                                KeyCode::Char('k') => self.pkg_list_state.select_previous(),
+                                KeyCode::Char('j') => {
+                                    self.pkg_list_state.select_next();
+                                    self.build_pkg_version_list(repo);
+                                }
+                                KeyCode::Char('k') => {
+                                    self.pkg_list_state.select_previous();
+                                    self.build_pkg_version_list(repo);
+                                }
 
                                 _ => {}
                             },
@@ -264,7 +290,9 @@ impl Screen for AvailablePackagesScreen {
                         );
 
                     self.pkg_list = Some(list);
-                    self.loading_state = LoadingState::Complete
+                    self.loading_state = LoadingState::Complete;
+
+                    self.build_pkg_version_list(repo);
                 }
 
                 loading_state => self.loading_state = *loading_state,
