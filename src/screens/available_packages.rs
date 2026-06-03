@@ -5,8 +5,8 @@ use ratatui::{
     crossterm::event::KeyCode,
     layout::{Constraint, Layout, Rect},
     style::Color,
-    text::Text,
-    widgets::{Block, Borders, List, ListState},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, List, ListState, Paragraph},
 };
 
 use crate::{
@@ -15,7 +15,10 @@ use crate::{
     screens::screen::Screen,
     signal::{Event, Signal},
     theme::Theme,
-    widgets::{package_metadata::render_package_metadata, use_flags::render_use_flags},
+    widgets::{
+        package_metadata::render_package_metadata, search_popup::SearchPopup,
+        use_flags::render_use_flags,
+    },
 };
 
 #[derive(Debug)]
@@ -34,6 +37,8 @@ pub struct AvailablePackagesScreen {
     variant_list_state: ListState,
 
     loading_state: LoadingState,
+
+    search_popup: SearchPopup,
 }
 
 fn version_to_variant(pkg_version: &PackageVersion) -> String {
@@ -44,10 +49,8 @@ fn version_to_variant(pkg_version: &PackageVersion) -> String {
 }
 
 impl AvailablePackagesScreen {
-    // TODO: this is the same as InstalledPackagesScreen, replace this with a widget function
     fn render_packages(&mut self, frame: &mut Frame, area: Rect) {
-        // TODO: Put this into screen, instead of rebuilding the list every frame
-
+        // might not need to be own function
         if let Some(list) = &self.pkg_list {
             frame.render_stateful_widget(list, area, &mut self.pkg_list_state);
         }
@@ -98,6 +101,7 @@ impl Default for AvailablePackagesScreen {
             pkg_list_state: list_state,
             variant_list_state: variant_state,
             loading_state: LoadingState::Idle,
+            search_popup: SearchPopup::default(),
         }
     }
 }
@@ -115,8 +119,13 @@ impl Screen for AvailablePackagesScreen {
             return;
         }
 
+        let [top, bottom] = area.layout(&Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(3),
+        ]));
+
         let constraints = [Constraint::Percentage(50), Constraint::Percentage(50)];
-        let [left, right] = area.layout(&Layout::horizontal(constraints));
+        let [left, right] = top.layout(&Layout::horizontal(constraints));
 
         let [package_list, use_flags] = left.layout(&Layout::vertical(constraints));
         let [package_variants, metadata] = right.layout(&Layout::vertical(constraints));
@@ -133,7 +142,11 @@ impl Screen for AvailablePackagesScreen {
         self.render_packages(frame, package_list);
 
         if let Some(pkg) = pkg {
-            self.render_package_variants(frame, package_variants, pkg.versions.iter().collect());
+            let mut pkg_versions: Vec<&PackageVersion> = pkg.versions.iter().collect();
+            pkg_versions.sort();
+            pkg_versions.reverse();
+
+            self.render_package_variants(frame, package_variants, pkg_versions);
 
             let selected_version = &pkg.versions[self.variant_list_state.selected().unwrap_or(0)];
 
@@ -141,7 +154,7 @@ impl Screen for AvailablePackagesScreen {
                 frame,
                 use_flags,
                 selected_version.iuse.iter().collect(),
-                // Get default active use flags for package, and globally defines ones
+                // Get default active use flags for package, and globally defined ones
                 HashSet::new(),
             );
 
@@ -154,6 +167,23 @@ impl Screen for AvailablePackagesScreen {
                 None,
             );
         }
+
+        let text = if self.search_popup.visible {
+            "(esc) to quit search | (enter) to search".to_string()
+        } else {
+            "(q) to quit | (j) down | (k) up | (space) switch panel | (/) to search".to_string()
+        };
+
+        let key_hint = Span::styled(text, Theme::muted());
+
+        let key_notes_footer = Paragraph::new(Line::from(key_hint)).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Theme::block()),
+        );
+        frame.render_widget(key_notes_footer, bottom);
+
+        self.search_popup.draw(frame, area);
     }
 
     fn update(
@@ -162,28 +192,57 @@ impl Screen for AvailablePackagesScreen {
         repo: &crate::gentoo::Portage,
     ) -> Option<crate::signal::Signal> {
         match event {
-            Event::KeyEvent(key) => match key.code {
-                KeyCode::Char('q') => return Some(Signal::Quit),
-                KeyCode::Tab => return Some(Signal::CycleTab),
+            Event::KeyEvent(key) => {
+                if self.search_popup.visible {
+                    match key.code {
+                        KeyCode::Esc => self.search_popup.toggle(),
+                        KeyCode::Enter => {
+                            let result = self.search_popup.search(
+                                repo.available_packages().iter().map(|p| &p.atom).collect(),
+                            );
+                            self.search_popup.toggle();
 
-                // TODO: This should cycle, also space isnt a good key for this
-                KeyCode::Char(' ') => self.cycle_list(),
+                            if let Some(index) = result {
+                                self.pkg_list_state.select(Some(index));
+                            }
+                        }
+                        _ => {
+                            self.search_popup.textarea.input_without_shortcuts(*key);
+                            let result = self.search_popup.search(
+                                repo.available_packages().iter().map(|p| &p.atom).collect(),
+                            );
 
-                _ => match self.chosen_list {
-                    CurrentList::PackageList => match key.code {
-                        KeyCode::Char('j') => self.pkg_list_state.select_next(),
-                        KeyCode::Char('k') => self.pkg_list_state.select_previous(),
+                            if let Some(index) = result {
+                                self.pkg_list_state.select(Some(index));
+                            }
+                        }
+                    }
+                } else {
+                    match key.code {
+                        KeyCode::Char('q') => return Some(Signal::Quit),
+                        KeyCode::Tab => return Some(Signal::CycleTab),
 
-                        _ => {}
-                    },
-                    CurrentList::VariantList => match key.code {
-                        KeyCode::Char('j') => self.variant_list_state.select_next(),
-                        KeyCode::Char('k') => self.variant_list_state.select_previous(),
+                        // TODO: This should cycle, also space isnt a good key for this
+                        KeyCode::Char(' ') => self.cycle_list(),
+                        KeyCode::Char('/') => self.search_popup.toggle(),
 
-                        _ => {}
-                    },
-                },
-            },
+                        _ => match self.chosen_list {
+                            CurrentList::PackageList => match key.code {
+                                KeyCode::Char('j') => self.pkg_list_state.select_next(),
+                                KeyCode::Char('k') => self.pkg_list_state.select_previous(),
+
+                                _ => {}
+                            },
+                            CurrentList::VariantList => match key.code {
+                                KeyCode::Char('j') => self.variant_list_state.select_next(),
+                                KeyCode::Char('k') => self.variant_list_state.select_previous(),
+
+                                _ => {}
+                            },
+                        },
+                    }
+                }
+            }
             Event::LoadStateUpdate(loading_state) => match loading_state {
                 LoadingState::Complete => {
                     let packages: Vec<String> = repo

@@ -46,7 +46,7 @@ impl PackageKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Metadata {
     pub maintainer: Option<String>,
     pub description: Option<String>,
@@ -81,7 +81,7 @@ pub struct Package {
     pub versions: Vec<PackageVersion>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageVersion {
     pub version: String,
 
@@ -89,4 +89,23 @@ pub struct PackageVersion {
 
     pub keywords: Vec<String>,
     pub iuse: Vec<UseFlag>,
+}
+
+impl PartialOrd for PackageVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.version.partial_cmp(&other.version) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+
+        self.metadata
+            .repository
+            .partial_cmp(&other.metadata.repository)
+    }
+}
+
+impl Ord for PackageVersion {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.version.cmp(&other.version)
+    }
 }

@@ -1,3 +1,13 @@
+use crate::{
+    gentoo::{InstalledPackage, Portage, package::PackageKey},
+    screens::screen::Screen,
+    signal::{Event, Signal},
+    theme::Theme,
+    widgets::{
+        helpers::search_popup_rect, package_metadata::render_package_metadata,
+        search_popup::SearchPopup, use_flags::render_use_flags,
+    },
+};
 use ratatui::{
     Frame,
     crossterm::event::{KeyCode, KeyModifiers},
@@ -6,71 +16,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListState, Paragraph},
 };
-use ratatui_textarea::TextArea;
-
-use crate::{
-    gentoo::{InstalledPackage, Portage, package::PackageKey},
-    screens::screen::Screen,
-    signal::{Event, Signal},
-    theme::Theme,
-    widgets::{
-        helpers::search_popup_rect, package_metadata::render_package_metadata,
-        use_flags::render_use_flags,
-    },
-};
-
-#[derive(Debug)]
-struct SearchPopup {
-    pub(crate) visible: bool,
-    pub(crate) textarea: TextArea<'static>,
-    pub(crate) result: Option<usize>,
-}
-
-impl Default for SearchPopup {
-    fn default() -> Self {
-        let mut search_popup = Self {
-            visible: bool::default(),
-            textarea: TextArea::default(),
-            result: Option::default(),
-        };
-
-        search_popup.textarea.set_style(Theme::muted());
-        search_popup
-            .textarea
-            .set_cursor_line_style(Style::default());
-
-        search_popup
-    }
-}
-
-impl SearchPopup {
-    pub fn toggle(&mut self) {
-        self.visible = !self.visible;
-        self.textarea.clear();
-    }
-
-    pub fn search(&mut self, packages: Vec<&InstalledPackage>) -> Option<usize> {
-        let indexes: Vec<usize> = packages
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| {
-                s.atom
-                    .qualified_name()
-                    .to_lowercase()
-                    .contains(&self.textarea.lines()[0].to_lowercase())
-            })
-            .map(|(i, _)| i)
-            .collect();
-
-        if indexes.is_empty() {
-            self.result = None;
-            None
-        } else {
-            self.result = Some(indexes[0]);
-            Some(indexes[0])
-        }
-    }
-}
 
 #[derive(Debug)]
 enum FilterState {
@@ -208,32 +153,7 @@ impl Screen for InstalledPackagesScreen {
         );
         frame.render_widget(key_notes_footer, bottom);
 
-        if self.search_popup.visible {
-            let mut popup_block = Block::default()
-                .title("Search")
-                .borders(Borders::ALL)
-                .border_type(ratatui::widgets::BorderType::Rounded)
-                .border_style(Theme::block())
-                .style(Style::default().bg(Theme::BG));
-
-            if self.search_popup.result.is_some() {
-                popup_block = popup_block.border_style(Theme::success());
-            } else {
-                popup_block = popup_block.border_style(Theme::error());
-            }
-
-            self.search_popup.textarea.set_block(popup_block);
-
-            let area = search_popup_rect(70, area);
-
-            frame.render_widget(
-                Block::default().style(Style::default().bg(Theme::BG).add_modifier(Modifier::DIM)),
-                frame.area(),
-            );
-            frame.render_widget(Clear, area);
-            frame.render_widget(Block::default().style(Style::default().bg(Theme::BG)), area);
-            frame.render_widget(&self.search_popup.textarea, area);
-        }
+        self.search_popup.draw(frame, area);
     }
 
     fn update(&mut self, event: &Event, repo: &Portage) -> Option<Signal> {
@@ -248,7 +168,9 @@ impl Screen for InstalledPackagesScreen {
                     match key.code {
                         KeyCode::Esc => self.search_popup.toggle(),
                         KeyCode::Enter => {
-                            let result = self.search_popup.search(packages);
+                            let result = self
+                                .search_popup
+                                .search(packages.iter().map(|p| &p.atom).collect());
                             self.search_popup.toggle();
 
                             if let Some(index) = result {
@@ -257,7 +179,9 @@ impl Screen for InstalledPackagesScreen {
                         }
                         _ => {
                             self.search_popup.textarea.input_without_shortcuts(*key);
-                            let result = self.search_popup.search(packages);
+                            let result = self
+                                .search_popup
+                                .search(packages.iter().map(|p| &p.atom).collect());
 
                             if let Some(index) = result {
                                 self.list_state.select(Some(index));
