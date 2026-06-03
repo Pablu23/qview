@@ -1,4 +1,5 @@
 mod app;
+mod background_loader;
 mod gentoo;
 mod screens;
 mod signal;
@@ -8,12 +9,14 @@ mod widgets;
 use std::{
     io::{self, Stdout, stdout},
     panic::{set_hook, take_hook},
+    time::Duration,
 };
 
 use clap::command;
 use ratatui::{
     Terminal,
     crossterm::{
+        event::poll,
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
@@ -48,6 +51,7 @@ fn main() -> color_eyre::Result<()> {
     let p = Portage::new(installed_packages, world_packages, vec![]);
 
     let mut app = App::new(p);
+    app.start_available_packages_load();
 
     run(tui, &mut app)?;
 
@@ -56,10 +60,15 @@ fn main() -> color_eyre::Result<()> {
 
 fn run(mut terminal: Terminal<CrosstermBackend<Stdout>>, app: &mut App) -> color_eyre::Result<()> {
     loop {
+        app.poll_available_packages();
+
         terminal.draw(|frame| app.draw(frame))?;
-        let should_exit = app.update()?;
-        if should_exit {
-            break;
+
+        if poll(Duration::from_millis(50))? {
+            let should_exit = app.update()?;
+            if should_exit {
+                break;
+            }
         }
     }
 

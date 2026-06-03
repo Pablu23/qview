@@ -7,9 +7,9 @@ use crate::gentoo::{
 
 #[derive(Debug, Default)]
 pub struct Portage {
-    installed: Vec<InstalledPackage>,
-    world_set: HashSet<PackageKey>,
-    available: Vec<Package>,
+    pub installed: Vec<InstalledPackage>,
+    pub world_set: HashSet<PackageKey>,
+    pub available: Vec<Package>,
 }
 
 impl Portage {

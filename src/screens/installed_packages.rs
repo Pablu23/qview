@@ -9,6 +9,7 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 use crate::{
+    app::LoadingState,
     gentoo::{InstalledPackage, Portage, package::PackageKey},
     screens::screen::Screen,
     signal::Signal,
@@ -130,7 +131,13 @@ impl Default for InstalledPackagesScreen {
 }
 
 impl Screen for InstalledPackagesScreen {
-    fn draw(&mut self, frame: &mut Frame, area: Rect, repo: &Portage) {
+    fn draw(
+        &mut self,
+        frame: &mut Frame,
+        area: Rect,
+        repo: &Portage,
+        _loading_state: &LoadingState,
+    ) {
         let constraints = [Constraint::Fill(1), Constraint::Length(3)];
 
         let layout = Layout::vertical(constraints);

@@ -6,7 +6,7 @@ use ratatui::{
 };
 
 use crate::{
-    gentoo::Portage, screens::screen::Screen, signal::Signal, theme::Theme,
+    app::LoadingState, gentoo::Portage, screens::screen::Screen, signal::Signal, theme::Theme,
     widgets::helpers::human_size,
 };
 
@@ -35,6 +35,7 @@ impl Screen for DashboardScreen {
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         repo: &crate::gentoo::Portage,
+        loading_state: &LoadingState,
     ) {
         let logo = "
      ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
@@ -75,17 +76,6 @@ impl Screen for DashboardScreen {
 
         let logo = Paragraph::new(Text::styled(logo, Theme::title()));
         frame.render_widget(logo, logo_top);
-
-        let keys = Paragraph::new(Span::styled(
-            "(q) to quit | (tab) to switch tabs",
-            Theme::muted(),
-        ))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Theme::block()),
-        );
-        frame.render_widget(keys, key_hints);
 
         let installed_packages_len = repo.installed_packages_len().to_string();
         let installed_packages =
@@ -130,6 +120,41 @@ impl Screen for DashboardScreen {
         frame.render_widget(installed_size, splits[0]);
         frame.render_widget(distfiles_cache, splits[1]);
         frame.render_widget(portage_news, splits[2]);
+
+        let keys_text = "(q) to quit | (tab) to cycle tabs";
+
+        let loading_text = match loading_state {
+            LoadingState::Loading => "⟳ Loading available packages...",
+            LoadingState::Error => "⚠ Failed to load available packages",
+            LoadingState::Complete => "✓ Available packages loaded",
+            LoadingState::Idle => "",
+        };
+
+        let full_text = if !loading_text.is_empty() {
+            // Calculate spacing to push loading text to the right
+            vec![Line::from(vec![
+                Span::styled(keys_text, Theme::muted()),
+                Span::raw(" | "),
+                Span::styled(
+                    loading_text,
+                    match loading_state {
+                        crate::app::LoadingState::Loading => Theme::muted(),
+                        crate::app::LoadingState::Error => Theme::error(),
+                        crate::app::LoadingState::Complete => Theme::success(),
+                        crate::app::LoadingState::Idle => Theme::muted(),
+                    },
+                ),
+            ])]
+        } else {
+            vec![Line::from(Span::styled(keys_text, Theme::muted()))]
+        };
+
+        let key_notes = Paragraph::new(full_text).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Theme::block()),
+        );
+        frame.render_widget(key_notes, key_hints);
     }
 
     fn update(&mut self, key: ratatui::crossterm::event::KeyEvent, _: &Portage) -> Option<Signal> {

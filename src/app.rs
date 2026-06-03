@@ -1,4 +1,3 @@
-use color_eyre::eyre::Ok;
 use ratatui::{
     Frame,
     crossterm::event::{self, Event, KeyCode},
@@ -9,6 +8,7 @@ use ratatui::{
 };
 
 use crate::{
+    background_loader::PackageLoader,
     gentoo::portage::Portage,
     screens::{
         dashboard::DashboardScreen, installed_packages::InstalledPackagesScreen, screen::Screen,
@@ -25,6 +25,14 @@ pub enum ViewState {
     AvailablePackages = 2,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum LoadingState {
+    Idle,
+    Loading,
+    Complete,
+    Error,
+}
+
 #[derive(Debug)]
 pub struct App {
     portage: Portage,
@@ -33,6 +41,10 @@ pub struct App {
     dashboard_screen: DashboardScreen,
 
     pub view: ViewState,
+
+    available_loader: Option<PackageLoader>,
+    pub loading_state: LoadingState,
+    pub loading_error: Option<String>,
 }
 
 impl App {
@@ -44,6 +56,10 @@ impl App {
             installed_package_screen: InstalledPackagesScreen::default(),
 
             view: ViewState::Dashboard,
+
+            available_loader: None,
+            loading_state: LoadingState::Idle,
+            loading_error: None,
         }
     }
 
@@ -58,10 +74,11 @@ impl App {
         match self.view {
             ViewState::InstalledPackages => {
                 self.installed_package_screen
-                    .draw(frame, rest, &self.portage);
+                    .draw(frame, rest, &self.portage, &self.loading_state);
             }
             ViewState::Dashboard => {
-                self.dashboard_screen.draw(frame, rest, &self.portage);
+                self.dashboard_screen
+                    .draw(frame, rest, &self.portage, &self.loading_state);
             }
             ViewState::AvailablePackages => {
                 frame.render_widget(Text::from("NOT IMPLEMENTED"), rest);
@@ -70,7 +87,7 @@ impl App {
     }
 
     pub fn update(&mut self) -> color_eyre::Result<bool> {
-        if let Event::Key(key) = event::read()? {
+        if let Ok(Event::Key(key)) = event::read() {
             let signal = match self.view {
                 crate::app::ViewState::InstalledPackages => {
                     self.installed_package_screen.update(key, &self.portage)
@@ -93,6 +110,35 @@ impl App {
         }
 
         Ok(false)
+    }
+
+    pub fn poll_available_packages(&mut self) {
+        if let Some(loader) = &self.available_loader {
+            if let Some(msg) = loader.try_recv() {
+                match msg {
+                    crate::background_loader::LoaderMessage::Loading => {
+                        self.loading_state = LoadingState::Loading;
+                    }
+                    crate::background_loader::LoaderMessage::Complete(packages) => {
+                        self.portage.available = packages;
+                        self.loading_state = LoadingState::Complete;
+
+                        // TODO: Join loader thread with main thread again
+                        self.available_loader = None;
+                    }
+                    crate::background_loader::LoaderMessage::Error(e) => {
+                        self.loading_error = Some(e);
+                        self.loading_state = LoadingState::Error;
+                        self.available_loader = None;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn start_available_packages_load(&mut self) {
+        self.available_loader = Some(PackageLoader::spawn());
+        self.loading_state = LoadingState::Loading;
     }
 
     pub fn cycle_current_tab(&mut self) {
