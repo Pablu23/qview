@@ -128,6 +128,7 @@ The project is still early in development. Planned features include:
 - [ ] Search improvements
 - [ ] Sorting options
 - [x] Async package metadata loading
+- [ ] Logging
 
 ---
 

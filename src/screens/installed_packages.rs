@@ -115,7 +115,7 @@ impl Screen for InstalledPackagesScreen {
                 split_vert[0],
                 pkg.iuse.iter().collect(),
                 // TODO: Dont use clone here if possible
-                pkg.enabled_use_flags.clone(),
+                &pkg.enabled_use_flags,
             );
             render_package_metadata(
                 frame,

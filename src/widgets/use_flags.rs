@@ -14,7 +14,7 @@ pub fn render_use_flags(
     frame: &mut Frame,
     area: Rect,
     use_flags: Vec<&UseFlag>,
-    enabled_use_flags: HashSet<String>,
+    enabled_use_flags: &HashSet<String>,
 ) {
     let max_len = use_flags.iter().map(|f| f.name.len()).max().unwrap_or(1);
 

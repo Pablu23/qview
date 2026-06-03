@@ -185,7 +185,7 @@ impl Screen for AvailablePackagesScreen {
                 use_flags,
                 selected_version.iuse.iter().collect(),
                 // Get default active use flags for package, and globally defined ones
-                HashSet::new(),
+                &HashSet::new(),
             );
 
             render_package_metadata(
