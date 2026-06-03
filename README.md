@@ -109,7 +109,8 @@ nix develop
 
 The project is still early in development. Planned features include:
 - [x] Public guru ebuild
-- [ ] Portage package search/browser
+- [x] Portage package search/browser
+  - [ ] Nicer loading screen
 - [ ] Improved information in package metadata
   - [ ] RDEPEND
   - [ ] BDEPEND
@@ -126,7 +127,7 @@ The project is still early in development. Planned features include:
 - [ ] Portage news reader
 - [ ] Search improvements
 - [ ] Sorting options
-- [ ] Async package metadata loading
+- [x] Async package metadata loading
 
 ---
 
