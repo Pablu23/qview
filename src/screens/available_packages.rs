@@ -79,22 +79,34 @@ impl AvailablePackagesScreen {
         }
     }
 
-    fn build_pkg_version_list(&mut self, repo: &Portage) {
+    fn selected_package<'a>(&self, repo: &'a Portage) -> Option<&'a Package> {
         let packages: Vec<&PackageKey> =
             repo.available_packages().iter().map(|x| &x.atom).collect();
 
         let Some(selected_package_key) = packages.get(self.pkg_list_state.selected().unwrap_or(0))
         else {
-            return;
+            return None;
         };
 
-        let Some(pkg) = repo.get_available_package(selected_package_key) else {
-            return;
+        repo.get_available_package(selected_package_key)
+    }
+
+    fn selected_package_versions<'a>(&self, repo: &'a Portage) -> Option<Vec<&'a PackageVersion>> {
+        let Some(pkg) = self.selected_package(repo) else {
+            return None;
         };
 
         let mut pkg_versions: Vec<&PackageVersion> = pkg.versions.iter().collect();
         pkg_versions.sort();
         pkg_versions.reverse();
+
+        Some(pkg_versions)
+    }
+
+    fn build_pkg_version_list(&mut self, repo: &Portage) {
+        let Some(pkg_versions) = self.selected_package_versions(repo) else {
+            return;
+        };
 
         self.variant_list = Some(
             List::new(pkg_versions.iter().map(|v| version_to_variant(v)))
@@ -109,7 +121,7 @@ impl AvailablePackagesScreen {
                 ),
         );
 
-        self.selected_version = Some(pkg.versions[0].clone());
+        self.selected_version = Some(pkg_versions[0].clone());
     }
 }
 
@@ -204,11 +216,7 @@ impl Screen for AvailablePackagesScreen {
         self.search_popup.draw(frame, area);
     }
 
-    fn update(
-        &mut self,
-        event: &Event,
-        repo: &crate::gentoo::Portage,
-    ) -> Option<crate::signal::Signal> {
+    fn update(&mut self, event: &Event, repo: &Portage) -> Option<Signal> {
         match event {
             Event::KeyEvent(key) => {
                 if self.search_popup.visible {
@@ -260,8 +268,29 @@ impl Screen for AvailablePackagesScreen {
                                 _ => {}
                             },
                             CurrentList::VariantList => match key.code {
-                                KeyCode::Char('j') => self.variant_list_state.select_next(),
-                                KeyCode::Char('k') => self.variant_list_state.select_previous(),
+                                KeyCode::Char('j') => {
+                                    if let Some(pkg_versions) = self.selected_package_versions(repo)
+                                    {
+                                        self.variant_list_state.select_next();
+
+                                        let index = self.variant_list_state.selected().unwrap_or(0);
+                                        if index >= pkg_versions.len() {
+                                            self.variant_list_state.select_previous();
+                                        } else {
+                                            self.selected_version =
+                                                Some(pkg_versions[index].clone());
+                                        }
+                                    };
+                                }
+                                KeyCode::Char('k') => {
+                                    if let Some(pkg_versions) = self.selected_package_versions(repo)
+                                    {
+                                        self.variant_list_state.select_previous();
+
+                                        let index = self.variant_list_state.selected().unwrap_or(0);
+                                        self.selected_version = Some(pkg_versions[index].clone());
+                                    };
+                                }
 
                                 _ => {}
                             },
