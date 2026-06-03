@@ -14,7 +14,7 @@ pub enum LoaderMessage {
 #[derive(Debug)]
 pub struct PackageLoader {
     receiver: Receiver<LoaderMessage>,
-    thread_handle: thread::JoinHandle<()>,
+    thread_handle: Option<thread::JoinHandle<()>>,
 }
 
 impl PackageLoader {
@@ -35,13 +35,19 @@ impl PackageLoader {
 
         PackageLoader {
             receiver: rx,
-            thread_handle,
+            thread_handle: Some(thread_handle),
         }
     }
 
     pub fn try_recv(&self) -> Option<LoaderMessage> {
         self.receiver.try_recv().ok()
     }
+}
 
-    //TODO: join thread back to main thread after packages were loaded
+impl Drop for PackageLoader {
+    fn drop(&mut self) {
+        if let Some(handle) = self.thread_handle.take() {
+            _ = handle.join();
+        }
+    }
 }

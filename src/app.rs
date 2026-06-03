@@ -95,6 +95,12 @@ impl App {
 
                 // Fallback, primarly while implementing
                 _ => match key.code {
+                    KeyCode::Char('r') => {
+                        if !matches!(self.loading_state, LoadingState::Loading) {
+                            self.start_available_packages_load();
+                        }
+                        None
+                    }
                     KeyCode::Char('q') => Some(Signal::Quit),
                     KeyCode::Tab => Some(Signal::CycleTab),
                     _ => None,
@@ -123,12 +129,12 @@ impl App {
                         self.portage.available = packages;
                         self.loading_state = LoadingState::Complete;
 
-                        // TODO: Join loader thread with main thread again
                         self.available_loader = None;
                     }
                     crate::background_loader::LoaderMessage::Error(e) => {
                         self.loading_error = Some(e);
                         self.loading_state = LoadingState::Error;
+
                         self.available_loader = None;
                     }
                 }
