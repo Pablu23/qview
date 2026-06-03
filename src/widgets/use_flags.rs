@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ratatui::{
     Frame,
     layout::Rect,
@@ -6,22 +8,21 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::{gentoo::InstalledPackage, theme::Theme};
+use crate::{gentoo::UseFlag, theme::Theme};
 
-pub fn render_use_flags(frame: &mut Frame, area: Rect, package: Option<&InstalledPackage>) {
-    let Some(package) = package else {
-        return;
-    };
-
-    let flags: Vec<_> = package.iuse.iter().collect();
-
-    let max_len = flags.iter().map(|f| f.name.len()).max().unwrap_or(1);
+pub fn render_use_flags(
+    frame: &mut Frame,
+    area: Rect,
+    use_flags: Vec<&UseFlag>,
+    enabled_use_flags: HashSet<String>,
+) {
+    let max_len = use_flags.iter().map(|f| f.name.len()).max().unwrap_or(1);
 
     // width per column (+ padding between columns)
     let col_width = max_len as u16 + 3;
 
     let columns = (area.width / col_width).max(1) as usize;
-    let rows = flags.len().div_ceil(columns);
+    let rows = use_flags.len().div_ceil(columns);
 
     let mut lines = Vec::new();
 
@@ -31,8 +32,8 @@ pub fn render_use_flags(frame: &mut Frame, area: Rect, package: Option<&Installe
         for col in 0..columns {
             let idx = row * columns + col;
 
-            if let Some(flag) = flags.get(idx) {
-                let mut style = if package.enabled_use_flags.contains(&flag.name) {
+            if let Some(flag) = use_flags.get(idx) {
+                let mut style = if enabled_use_flags.contains(&flag.name) {
                     Theme::success()
                 } else if flag.default {
                     Theme::info()

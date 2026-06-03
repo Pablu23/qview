@@ -4,7 +4,7 @@ use ratatui::{
     text::{Line, Span},
 };
 
-use crate::gentoo::InstalledPackage;
+use crate::gentoo::{InstalledPackage, package::Metadata};
 
 pub fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
     // Cut the given rectangle into three vertical pieces
@@ -24,14 +24,14 @@ pub fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1] // Return the middle chunk
 }
 
-pub fn homepage_lines(pkg: &InstalledPackage, bold_style: Style) -> Vec<Line<'_>> {
+pub fn homepage_lines(metadata: &Metadata, bold_style: Style) -> Vec<Line<'_>> {
     let mut lines = Vec::new();
     lines.push(Line::from(vec![
         Span::styled("Homepage: ", bold_style),
         Span::raw(""),
     ]));
 
-    for url in pkg.metadata.homepage.iter().filter(|s| !s.is_empty()) {
+    for url in metadata.homepage.iter().filter(|s| !s.is_empty()) {
         lines.push(Line::from(vec![
             Span::raw("  - "), // indentation
             Span::styled(

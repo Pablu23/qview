@@ -41,16 +41,25 @@ impl Portage {
             .collect()
     }
 
-    pub fn get_installed_package(&self, index: usize) -> Option<&InstalledPackage> {
-        if self.installed.len() > index && index > 0 {
-            return Some(&self.installed[index]);
+    pub fn get_installed_package(&self, key: &PackageKey) -> Option<&InstalledPackage> {
+        let pkg = self.installed.iter().find(|pkg| pkg.atom == *key);
+        if let Some(pkg) = pkg {
+            return Some(pkg);
         }
 
         None
     }
 
-    pub fn get_installed_package_key(&self, key: &PackageKey) -> Option<&InstalledPackage> {
-        let pkg = self.installed.iter().find(|pkg| pkg.atom == *key);
+    pub fn available_packages(&self) -> Vec<&Package> {
+        let mut pkg: Vec<&Package> = self.available.iter().collect();
+
+        pkg.sort_by_key(|p| &p.atom);
+
+        pkg
+    }
+
+    pub fn get_available_package(&self, key: &PackageKey) -> Option<&Package> {
+        let pkg = self.available.iter().find(|pkg| pkg.atom == *key);
         if let Some(pkg) = pkg {
             return Some(pkg);
         }

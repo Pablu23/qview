@@ -4,11 +4,33 @@ use chrono::{DateTime, Utc};
 
 use crate::gentoo::UseFlag;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PackageKey {
+    // Field declaration matters because Ord, and PartialOrd check in order
     pub category: String,
     pub name: String,
 }
+
+// impl Ord for PackageKey {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         let cat_ord = self.category.cmp(&other.category);
+//         if cat_ord == Ordering::Equal {
+//             return self.name.cmp(&other.name);
+//         }
+//
+//         cat_ord
+//     }
+// }
+//
+// impl PartialOrd for PackageKey {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         match self.category.partial_cmp(&other.category) {
+//             Some(core::cmp::Ordering::Equal) => {}
+//             ord => return ord,
+//         }
+//         self.name.partial_cmp(&other.name)
+//     }
+// }
 
 impl PackageKey {
     pub fn from_atom(s: &str) -> Option<Self> {

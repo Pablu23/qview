@@ -162,7 +162,7 @@ impl Screen for InstalledPackagesScreen {
         // (this) package installed
         let selected_package_key = items.get(self.list_state.selected().unwrap_or(0));
         let pkg: Option<&InstalledPackage> = match selected_package_key {
-            Some(selected_package_key) => repo.get_installed_package_key(selected_package_key),
+            Some(selected_package_key) => repo.get_installed_package(selected_package_key),
             None => None,
         };
 
@@ -171,8 +171,23 @@ impl Screen for InstalledPackagesScreen {
             split[0],
             items.iter().map(|x| x.qualified_name()).collect(),
         );
-        render_use_flags(frame, split_vert[0], pkg);
-        render_package_metadata(frame, split_vert[1], pkg);
+        if let Some(pkg) = pkg {
+            render_use_flags(
+                frame,
+                split_vert[0],
+                pkg.iuse.iter().collect(),
+                // TODO: Dont use clone here if possible
+                pkg.enabled_use_flags.clone(),
+            );
+            render_package_metadata(
+                frame,
+                split_vert[1],
+                &pkg.version,
+                &pkg.metadata,
+                Some(pkg.size),
+                Some(pkg.build_time),
+            );
+        }
 
         let text = if self.search_popup.visible {
             "(esc) to quit search | (enter) to search".to_string()

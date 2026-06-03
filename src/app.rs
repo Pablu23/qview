@@ -11,7 +11,8 @@ use crate::{
     background_loader::PackageLoader,
     gentoo::portage::Portage,
     screens::{
-        dashboard::DashboardScreen, installed_packages::InstalledPackagesScreen, screen::Screen,
+        available_packages::AvailablePackagesScreen, dashboard::DashboardScreen,
+        installed_packages::InstalledPackagesScreen, screen::Screen,
     },
     signal::Signal,
     theme::Theme,
@@ -37,8 +38,9 @@ pub enum LoadingState {
 pub struct App {
     portage: Portage,
 
-    installed_package_screen: InstalledPackagesScreen,
     dashboard_screen: DashboardScreen,
+    installed_package_screen: InstalledPackagesScreen,
+    available_package_screen: AvailablePackagesScreen,
 
     pub view: ViewState,
 
@@ -54,6 +56,7 @@ impl App {
 
             dashboard_screen: DashboardScreen::default(),
             installed_package_screen: InstalledPackagesScreen::default(),
+            available_package_screen: AvailablePackagesScreen::default(),
 
             view: ViewState::Dashboard,
 
@@ -81,7 +84,8 @@ impl App {
                     .draw(frame, rest, &self.portage, &self.loading_state);
             }
             ViewState::AvailablePackages => {
-                frame.render_widget(Text::from("NOT IMPLEMENTED"), rest);
+                self.available_package_screen
+                    .draw(frame, rest, &self.portage, &self.loading_state);
             }
         }
     }
@@ -91,6 +95,9 @@ impl App {
             let signal = match self.view {
                 crate::app::ViewState::InstalledPackages => {
                     self.installed_package_screen.update(key, &self.portage)
+                }
+                ViewState::AvailablePackages => {
+                    self.available_package_screen.update(key, &self.portage)
                 }
 
                 // Fallback, primarly while implementing
