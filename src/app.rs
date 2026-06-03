@@ -58,12 +58,14 @@ impl App {
         match self.view {
             ViewState::InstalledPackages => {
                 self.installed_package_screen
-                    .draw(frame, rest, &self.portage)
+                    .draw(frame, rest, &self.portage);
             }
             ViewState::Dashboard => {
                 self.dashboard_screen.draw(frame, rest, &self.portage);
             }
-            _ => frame.render_widget(Text::from("NOT IMPLEMENTED"), rest),
+            ViewState::AvailablePackages => {
+                frame.render_widget(Text::from("NOT IMPLEMENTED"), rest);
+            }
         }
     }
 

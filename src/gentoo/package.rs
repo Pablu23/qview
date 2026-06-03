@@ -56,11 +56,11 @@ pub struct InstalledPackage {
 pub struct Package {
     pub atom: PackageKey,
 
-    pub versions: Vec<Version>,
+    pub versions: Vec<PackageVersion>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Version {
+pub struct PackageVersion {
     pub version: String,
 
     pub metadata: Metadata,

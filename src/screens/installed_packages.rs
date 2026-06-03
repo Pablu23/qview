@@ -39,7 +39,7 @@ impl Default for SearchPopup {
             .textarea
             .set_cursor_line_style(Style::default());
 
-        return search_popup;
+        search_popup
     }
 }
 
@@ -62,12 +62,12 @@ impl SearchPopup {
             .map(|(i, _)| i)
             .collect();
 
-        if indexes.len() >= 1 {
-            self.result = Some(indexes[0]);
-            return Some(indexes[0]);
-        } else {
+        if indexes.is_empty() {
             self.result = None;
-            return None;
+            None
+        } else {
+            self.result = Some(indexes[0]);
+            Some(indexes[0])
         }
     }
 }
@@ -122,9 +122,9 @@ impl Default for InstalledPackagesScreen {
         let mut list_state = ListState::default();
         list_state.select(Some(0));
         Self {
-            list_state: list_state,
+            list_state,
             filter_state: FilterState::Unfiltered,
-            search_popup: Default::default(),
+            search_popup: SearchPopup::default(),
         }
     }
 }
@@ -201,7 +201,7 @@ impl Screen for InstalledPackagesScreen {
                 .border_style(Theme::block())
                 .style(Style::default().bg(Theme::BG));
 
-            if let Some(_) = self.search_popup.result {
+            if self.search_popup.result.is_some() {
                 popup_block = popup_block.border_style(Theme::success());
             } else {
                 popup_block = popup_block.border_style(Theme::error());
@@ -246,7 +246,7 @@ impl Screen for InstalledPackagesScreen {
                         self.list_state.select(Some(index));
                     }
                 }
-            };
+            }
         } else {
             match key.modifiers {
                 KeyModifiers::CONTROL => match key.code {

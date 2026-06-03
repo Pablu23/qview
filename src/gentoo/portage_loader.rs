@@ -10,7 +10,7 @@ use quick_xml::{Reader, events::Event};
 
 use crate::gentoo::{
     InstalledPackage, UseFlag,
-    package::{Metadata, Package, PackageKey, Version},
+    package::{Metadata, Package, PackageKey, PackageVersion},
 };
 
 fn split_pkg(input: &str) -> (&str, &str) {
@@ -68,7 +68,7 @@ fn extract_maintainer(path: &Path) -> color_eyre::Result<Option<String>> {
     Ok(None)
 }
 
-fn parse_cache_file(content: String) -> HashMap<String, String> {
+fn parse_cache_file(content: &str) -> HashMap<String, String> {
     content
         .lines()
         .filter_map(|line| {
@@ -137,72 +137,64 @@ pub fn load_available_packages() -> color_eyre::Result<Vec<Package>> {
 
                 let version_file = fs::read_to_string(pkg.path()).wrap_err_with(|| {
                     format!(
-                        "failed to read version_file for {}/{}-{} in repo {}",
-                        cat_name, pkg_name, pkg_version, repo_name
+                        "failed to read version_file for {cat_name}/{pkg_name}-{pkg_version} in repo {repo_name}"
                     )
                 })?;
-                let data = parse_cache_file(version_file);
+                let data = parse_cache_file(&version_file);
 
                 let homepages: Vec<String> = data
                     .get("HOMEPAGE")
-                    .and_then(|s| {
-                        Some(
-                            s.split_whitespace()
-                                .map(std::string::ToString::to_string)
-                                .collect(),
-                        )
+                    .map(|s| {
+                        s.split_whitespace()
+                            .map(std::string::ToString::to_string)
+                            .collect()
                     })
-                    .unwrap_or(vec![]);
+                    .unwrap_or_default();
 
                 let keywords: Vec<String> = data
                     .get("KEYWORDS")
-                    .and_then(|s| {
-                        Some(
-                            s.split_whitespace()
-                                .map(std::string::ToString::to_string)
-                                .collect(),
-                        )
+                    .map(|s| {
+                        s.split_whitespace()
+                            .map(std::string::ToString::to_string)
+                            .collect()
                     })
-                    .unwrap_or(vec![]);
+                    .unwrap_or_default();
 
                 let iuse: Vec<UseFlag> = data
                     .get("IUSE")
-                    .and_then(|s| {
-                        Some(
-                            s.split_whitespace()
-                                .map(|original_iuse| {
-                                    let iuse =
-                                        original_iuse.strip_prefix("+").unwrap_or(original_iuse);
+                    .map(|s| {
+                        s.split_whitespace()
+                            .map(|original_iuse| {
+                                let iuse = original_iuse.strip_prefix("+").unwrap_or(original_iuse);
 
-                                    UseFlag {
-                                        name: iuse.to_string(),
-                                        default: iuse != original_iuse,
-                                    }
-                                })
-                                .collect(),
-                        )
+                                UseFlag {
+                                    name: iuse.to_string(),
+                                    default: iuse != original_iuse,
+                                }
+                            })
+                            .collect()
                     })
-                    .unwrap_or(vec![]);
+                    .unwrap_or_default();
 
                 let repo_path = PathBuf::from("/var/db/repos/")
-                    .join(&repo_name)
+                    .join(repo_name)
                     .join(&cat_name)
                     .join(pkg_name)
                     .join("metadata.xml");
 
                 let maintainer = extract_maintainer(&repo_path).unwrap_or(None);
 
-                let version = Version {
+                let version = PackageVersion {
                     version: pkg_version.to_string(),
                     metadata: Metadata {
-                        maintainer: maintainer,
+                        maintainer,
                         description: data.get("DESCRIPTION").cloned(),
                         homepage: homepages,
                         license: data.get("LICENSE").cloned(),
                         repository: repo_name.to_string(),
                     },
-                    keywords: keywords,
-                    iuse: iuse,
+                    keywords,
+                    iuse,
                 };
 
                 let pkg_key = PackageKey {
@@ -256,7 +248,7 @@ pub fn load_installed_packages() -> color_eyre::Result<Vec<InstalledPackage>> {
             let use_flags_file = fs::read_to_string(pkg.path().join("USE"))?;
             let enabled_use_flags: HashSet<String> = use_flags_file
                 .split_whitespace()
-                .map(|s| s.to_string())
+                .map(ToString::to_string)
                 .collect();
 
             let iuse_flags_file = fs::read_to_string(pkg.path().join("IUSE"))?;
@@ -322,18 +314,18 @@ pub fn load_installed_packages() -> color_eyre::Result<Vec<InstalledPackage>> {
             };
 
             v.push(InstalledPackage {
-                atom: atom,
+                atom,
                 version: pkg_version.to_string(),
                 build_time,
                 slot: 0,
                 metadata: Metadata {
                     maintainer,
                     description,
-                    homepage: homepage,
+                    homepage,
                     license,
-                    repository: repository,
+                    repository,
                 },
-                enabled_use_flags: enabled_use_flags,
+                enabled_use_flags,
                 iuse: use_flags,
                 size,
             });
