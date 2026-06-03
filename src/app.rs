@@ -1,9 +1,7 @@
 use ratatui::{
     Frame,
-    crossterm::event::{self, Event, KeyCode},
     layout::{Constraint, Layout},
     style::Stylize,
-    text::Text,
     widgets::Block,
 };
 
@@ -14,7 +12,7 @@ use crate::{
         available_packages::AvailablePackagesScreen, dashboard::DashboardScreen,
         installed_packages::InstalledPackagesScreen, screen::Screen,
     },
-    signal::Signal,
+    signal::{Event, Signal},
     theme::Theme,
     widgets::tabs::render_tab,
 };
@@ -26,9 +24,11 @@ pub enum ViewState {
     AvailablePackages = 2,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum LoadingState {
+    #[default]
     Idle,
+
     Loading,
     Complete,
     Error,
@@ -77,55 +77,48 @@ impl App {
         match self.view {
             ViewState::InstalledPackages => {
                 self.installed_package_screen
-                    .draw(frame, rest, &self.portage, &self.loading_state);
+                    .draw(frame, rest, &self.portage);
             }
             ViewState::Dashboard => {
-                self.dashboard_screen
-                    .draw(frame, rest, &self.portage, &self.loading_state);
+                self.dashboard_screen.draw(frame, rest, &self.portage);
             }
             ViewState::AvailablePackages => {
                 self.available_package_screen
-                    .draw(frame, rest, &self.portage, &self.loading_state);
+                    .draw(frame, rest, &self.portage);
             }
         }
     }
 
-    pub fn update(&mut self) -> color_eyre::Result<bool> {
-        if let Ok(Event::Key(key)) = event::read() {
-            let signal = match self.view {
+    pub fn update(&mut self, event: Event) -> color_eyre::Result<bool> {
+        let signal = match event {
+            Event::KeyEvent(_) => match self.view {
                 crate::app::ViewState::InstalledPackages => {
-                    self.installed_package_screen.update(key, &self.portage)
+                    self.installed_package_screen.update(&event, &self.portage)
                 }
                 ViewState::AvailablePackages => {
-                    self.available_package_screen.update(key, &self.portage)
+                    self.available_package_screen.update(&event, &self.portage)
                 }
+                ViewState::Dashboard => self.dashboard_screen.update(&event, &self.portage),
+            },
+            Event::LoadStateUpdate(_) => {
+                self.installed_package_screen.update(&event, &self.portage);
+                self.available_package_screen.update(&event, &self.portage);
+                self.dashboard_screen.update(&event, &self.portage);
+                None
+            }
+        };
 
-                // Fallback, primarly while implementing
-                _ => match key.code {
-                    KeyCode::Char('r') => {
-                        if !matches!(self.loading_state, LoadingState::Loading) {
-                            self.start_available_packages_load();
-                        }
-                        None
-                    }
-                    KeyCode::Char('q') => Some(Signal::Quit),
-                    KeyCode::Tab => Some(Signal::CycleTab),
-                    _ => None,
-                },
-            };
-
-            if let Some(signal) = signal {
-                match signal {
-                    Signal::Quit => return Ok(true),
-                    Signal::CycleTab => self.cycle_current_tab(),
-                }
+        if let Some(signal) = signal {
+            match signal {
+                Signal::Quit => return Ok(true),
+                Signal::CycleTab => self.cycle_current_tab(),
             }
         }
 
         Ok(false)
     }
 
-    pub fn poll_available_packages(&mut self) {
+    pub fn poll_available_packages(&mut self) -> Option<Event> {
         if let Some(loader) = &self.available_loader {
             if let Some(msg) = loader.try_recv() {
                 match msg {
@@ -145,8 +138,12 @@ impl App {
                         self.available_loader = None;
                     }
                 }
+
+                return Some(Event::LoadStateUpdate(self.loading_state));
             }
         }
+
+        None
     }
 
     pub fn start_available_packages_load(&mut self) {

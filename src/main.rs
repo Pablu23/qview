@@ -16,7 +16,7 @@ use clap::command;
 use ratatui::{
     Terminal,
     crossterm::{
-        event::poll,
+        event::{self, Event, poll},
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
@@ -60,19 +60,28 @@ fn main() -> color_eyre::Result<()> {
 
 fn run(mut terminal: Terminal<CrosstermBackend<Stdout>>, app: &mut App) -> color_eyre::Result<()> {
     loop {
-        app.poll_available_packages();
-
         terminal.draw(|frame| app.draw(frame))?;
 
+        let mut events = vec![];
+
+        if let Some(event) = app.poll_available_packages() {
+            events.push(event);
+        }
+
         if poll(Duration::from_millis(50))? {
-            let should_exit = app.update()?;
+            if let Ok(Event::Key(key)) = event::read() {
+                events.push(crate::signal::Event::KeyEvent(key));
+            }
+        }
+
+        for event in events {
+            // Process different event types in order
+            let should_exit = app.update(event)?;
             if should_exit {
-                break;
+                return Ok(());
             }
         }
     }
-
-    Ok(())
 }
 
 fn init_tui() -> io::Result<ratatui::Terminal<CrosstermBackend<Stdout>>> {

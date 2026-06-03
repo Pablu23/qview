@@ -4,7 +4,7 @@ use ratatui::{
     text::{Line, Span},
 };
 
-use crate::gentoo::{InstalledPackage, package::Metadata};
+use crate::gentoo::package::Metadata;
 
 pub fn search_popup_rect(percent_x: u16, r: Rect) -> Rect {
     // Cut the given rectangle into three vertical pieces

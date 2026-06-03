@@ -1,8 +1,11 @@
-use ratatui::{Frame, crossterm::event::KeyEvent, layout::Rect};
+use ratatui::{Frame, layout::Rect};
 
-use crate::{app::LoadingState, gentoo::Portage, signal::Signal};
+use crate::{
+    gentoo::Portage,
+    signal::{Event, Signal},
+};
 
 pub(crate) trait Screen {
-    fn draw(&mut self, frame: &mut Frame, area: Rect, repo: &Portage, loading_state: &LoadingState);
-    fn update(&mut self, key: KeyEvent, repo: &Portage) -> Option<Signal>;
+    fn draw(&mut self, frame: &mut Frame, area: Rect, repo: &Portage);
+    fn update(&mut self, event: &Event, repo: &Portage) -> Option<Signal>;
 }

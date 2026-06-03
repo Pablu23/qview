@@ -13,7 +13,7 @@ use crate::{
     app::LoadingState,
     gentoo::package::{Package, PackageKey, PackageVersion},
     screens::screen::Screen,
-    signal::Signal,
+    signal::{Event, Signal},
     theme::Theme,
     widgets::{package_metadata::render_package_metadata, use_flags::render_use_flags},
 };
@@ -28,8 +28,12 @@ enum CurrentList {
 pub struct AvailablePackagesScreen {
     chosen_list: CurrentList,
 
+    pkg_list: Option<List<'static>>,
     pkg_list_state: ListState,
+
     variant_list_state: ListState,
+
+    loading_state: LoadingState,
 }
 
 fn version_to_variant(pkg_version: &PackageVersion) -> String {
@@ -41,20 +45,12 @@ fn version_to_variant(pkg_version: &PackageVersion) -> String {
 
 impl AvailablePackagesScreen {
     // TODO: this is the same as InstalledPackagesScreen, replace this with a widget function
-    fn render_packages(&mut self, frame: &mut Frame, area: Rect, package_keys: Vec<String>) {
+    fn render_packages(&mut self, frame: &mut Frame, area: Rect) {
         // TODO: Put this into screen, instead of rebuilding the list every frame
-        let list = List::new(package_keys)
-            .style(Color::White)
-            .highlight_style(Theme::selected())
-            .highlight_symbol("> ")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Theme::block())
-                    .title("Available packages"),
-            );
 
-        frame.render_stateful_widget(list, area, &mut self.pkg_list_state);
+        if let Some(list) = &self.pkg_list {
+            frame.render_stateful_widget(list, area, &mut self.pkg_list_state);
+        }
     }
 
     fn render_package_variants(
@@ -98,8 +94,10 @@ impl Default for AvailablePackagesScreen {
 
         Self {
             chosen_list: CurrentList::PackageList,
+            pkg_list: None,
             pkg_list_state: list_state,
             variant_list_state: variant_state,
+            loading_state: LoadingState::Idle,
         }
     }
 }
@@ -110,9 +108,8 @@ impl Screen for AvailablePackagesScreen {
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         repo: &crate::gentoo::Portage,
-        loading_state: &crate::app::LoadingState,
     ) {
-        if !matches!(loading_state, LoadingState::Complete) {
+        if !matches!(self.loading_state, LoadingState::Complete) {
             // TODO: Implement loading screen
             frame.render_widget(Text::styled("Not implemented yet :P", Theme::text()), area);
             return;
@@ -133,11 +130,7 @@ impl Screen for AvailablePackagesScreen {
             None => None,
         };
 
-        self.render_packages(
-            frame,
-            package_list,
-            packages.iter().map(|x| x.qualified_name()).collect(),
-        );
+        self.render_packages(frame, package_list);
 
         if let Some(pkg) = pkg {
             self.render_package_variants(frame, package_variants, pkg.versions.iter().collect());
@@ -165,29 +158,57 @@ impl Screen for AvailablePackagesScreen {
 
     fn update(
         &mut self,
-        key: ratatui::crossterm::event::KeyEvent,
-        _repo: &crate::gentoo::Portage,
+        event: &Event,
+        repo: &crate::gentoo::Portage,
     ) -> Option<crate::signal::Signal> {
-        match key.code {
-            KeyCode::Char('q') => return Some(Signal::Quit),
-            KeyCode::Tab => return Some(Signal::CycleTab),
+        match event {
+            Event::KeyEvent(key) => match key.code {
+                KeyCode::Char('q') => return Some(Signal::Quit),
+                KeyCode::Tab => return Some(Signal::CycleTab),
 
-            // TODO: This should cycle, also space isnt a good key for this
-            KeyCode::Char(' ') => self.cycle_list(),
+                // TODO: This should cycle, also space isnt a good key for this
+                KeyCode::Char(' ') => self.cycle_list(),
 
-            _ => match self.chosen_list {
-                CurrentList::PackageList => match key.code {
-                    KeyCode::Char('j') => self.pkg_list_state.select_next(),
-                    KeyCode::Char('k') => self.pkg_list_state.select_previous(),
+                _ => match self.chosen_list {
+                    CurrentList::PackageList => match key.code {
+                        KeyCode::Char('j') => self.pkg_list_state.select_next(),
+                        KeyCode::Char('k') => self.pkg_list_state.select_previous(),
 
-                    _ => {}
+                        _ => {}
+                    },
+                    CurrentList::VariantList => match key.code {
+                        KeyCode::Char('j') => self.variant_list_state.select_next(),
+                        KeyCode::Char('k') => self.variant_list_state.select_previous(),
+
+                        _ => {}
+                    },
                 },
-                CurrentList::VariantList => match key.code {
-                    KeyCode::Char('j') => self.variant_list_state.select_next(),
-                    KeyCode::Char('k') => self.variant_list_state.select_previous(),
+            },
+            Event::LoadStateUpdate(loading_state) => match loading_state {
+                LoadingState::Complete => {
+                    let packages: Vec<String> = repo
+                        .available_packages()
+                        .iter()
+                        .map(|x| &x.atom)
+                        .map(|x| x.qualified_name())
+                        .collect();
 
-                    _ => {}
-                },
+                    let list = List::new(packages)
+                        .style(Color::White)
+                        .highlight_style(Theme::selected())
+                        .highlight_symbol("> ")
+                        .block(
+                            Block::default()
+                                .borders(Borders::ALL)
+                                .border_style(Theme::block())
+                                .title("Available packages"),
+                        );
+
+                    self.pkg_list = Some(list);
+                    self.loading_state = LoadingState::Complete
+                }
+
+                loading_state => self.loading_state = *loading_state,
             },
         }
 

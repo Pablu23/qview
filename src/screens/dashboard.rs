@@ -6,12 +6,18 @@ use ratatui::{
 };
 
 use crate::{
-    app::LoadingState, gentoo::Portage, screens::screen::Screen, signal::Signal, theme::Theme,
+    app::LoadingState,
+    gentoo::Portage,
+    screens::screen::Screen,
+    signal::{Event, Signal},
+    theme::Theme,
     widgets::helpers::human_size,
 };
 
 #[derive(Debug, Default)]
-pub struct DashboardScreen {}
+pub struct DashboardScreen {
+    loading_state: LoadingState,
+}
 
 fn create_stats<'a>(title: &'a str, value: &'a str) -> Paragraph<'a> {
     Paragraph::new(vec![
@@ -35,7 +41,6 @@ impl Screen for DashboardScreen {
         frame: &mut ratatui::Frame,
         area: ratatui::prelude::Rect,
         repo: &crate::gentoo::Portage,
-        loading_state: &LoadingState,
     ) {
         let logo = "
      ██████╗ ██╗   ██╗██╗███████╗██╗    ██╗
@@ -123,7 +128,7 @@ impl Screen for DashboardScreen {
 
         let keys_text = "(q) to quit | (tab) to cycle tabs";
 
-        let loading_text = match loading_state {
+        let loading_text = match self.loading_state {
             LoadingState::Loading => "⟳ Loading available packages...",
             LoadingState::Error => "⚠ Failed to load available packages",
             LoadingState::Complete => "✓ Available packages loaded",
@@ -137,7 +142,7 @@ impl Screen for DashboardScreen {
                 Span::raw(" | "),
                 Span::styled(
                     loading_text,
-                    match loading_state {
+                    match self.loading_state {
                         crate::app::LoadingState::Loading => Theme::muted(),
                         crate::app::LoadingState::Error => Theme::error(),
                         crate::app::LoadingState::Complete => Theme::success(),
@@ -157,12 +162,18 @@ impl Screen for DashboardScreen {
         frame.render_widget(key_notes, key_hints);
     }
 
-    fn update(&mut self, key: ratatui::crossterm::event::KeyEvent, _: &Portage) -> Option<Signal> {
-        match key.code {
-            KeyCode::Char('q') => Some(Signal::Quit),
-            KeyCode::Tab => Some(Signal::CycleTab),
+    fn update(&mut self, event: &Event, _: &Portage) -> Option<Signal> {
+        match event {
+            Event::KeyEvent(key) => match key.code {
+                KeyCode::Char('q') => Some(Signal::Quit),
+                KeyCode::Tab => Some(Signal::CycleTab),
 
-            _ => None,
+                _ => None,
+            },
+            Event::LoadStateUpdate(loading_state) => {
+                self.loading_state = *loading_state;
+                None
+            }
         }
     }
 }

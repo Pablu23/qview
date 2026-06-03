@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    crossterm::event::{KeyCode, KeyModifiers},
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -9,10 +9,9 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 
 use crate::{
-    app::LoadingState,
     gentoo::{InstalledPackage, Portage, package::PackageKey},
     screens::screen::Screen,
-    signal::Signal,
+    signal::{Event, Signal},
     theme::Theme,
     widgets::{
         helpers::search_popup_rect, package_metadata::render_package_metadata,
@@ -131,13 +130,7 @@ impl Default for InstalledPackagesScreen {
 }
 
 impl Screen for InstalledPackagesScreen {
-    fn draw(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        repo: &Portage,
-        _loading_state: &LoadingState,
-    ) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect, repo: &Portage) {
         let constraints = [Constraint::Fill(1), Constraint::Length(3)];
 
         let layout = Layout::vertical(constraints);
@@ -243,66 +236,71 @@ impl Screen for InstalledPackagesScreen {
         }
     }
 
-    fn update(&mut self, key: KeyEvent, repo: &Portage) -> Option<Signal> {
-        if self.search_popup.visible {
-            let packages = match self.filter_state {
-                FilterState::Unfiltered => repo.installed_packages(),
-                FilterState::WorldSet => repo.world_packages(),
-            };
+    fn update(&mut self, event: &Event, repo: &Portage) -> Option<Signal> {
+        match event {
+            Event::KeyEvent(key) => {
+                if self.search_popup.visible {
+                    let packages = match self.filter_state {
+                        FilterState::Unfiltered => repo.installed_packages(),
+                        FilterState::WorldSet => repo.world_packages(),
+                    };
 
-            match key.code {
-                KeyCode::Esc => self.search_popup.toggle(),
-                KeyCode::Enter => {
-                    let result = self.search_popup.search(packages);
-                    self.search_popup.toggle();
+                    match key.code {
+                        KeyCode::Esc => self.search_popup.toggle(),
+                        KeyCode::Enter => {
+                            let result = self.search_popup.search(packages);
+                            self.search_popup.toggle();
 
-                    if let Some(index) = result {
-                        self.list_state.select(Some(index));
-                    }
-                }
-                _ => {
-                    self.search_popup.textarea.input_without_shortcuts(key);
-                    let result = self.search_popup.search(packages);
+                            if let Some(index) = result {
+                                self.list_state.select(Some(index));
+                            }
+                        }
+                        _ => {
+                            self.search_popup.textarea.input_without_shortcuts(*key);
+                            let result = self.search_popup.search(packages);
 
-                    if let Some(index) = result {
-                        self.list_state.select(Some(index));
-                    }
-                }
-            }
-        } else {
-            match key.modifiers {
-                KeyModifiers::CONTROL => match key.code {
-                    KeyCode::Char('d') => self
-                        .list_state
-                        .select(Some(self.list_state.selected().unwrap_or(0) + 30)),
-                    KeyCode::Char('u') => {
-                        if let Some(selected) = self.list_state.selected() {
-                            if selected < 30 {
-                                self.list_state.select(Some(0));
-                            } else {
-                                self.list_state.select(Some(selected - 30));
+                            if let Some(index) = result {
+                                self.list_state.select(Some(index));
                             }
                         }
                     }
+                } else {
+                    match key.modifiers {
+                        KeyModifiers::CONTROL => match key.code {
+                            KeyCode::Char('d') => self
+                                .list_state
+                                .select(Some(self.list_state.selected().unwrap_or(0) + 30)),
+                            KeyCode::Char('u') => {
+                                if let Some(selected) = self.list_state.selected() {
+                                    if selected < 30 {
+                                        self.list_state.select(Some(0));
+                                    } else {
+                                        self.list_state.select(Some(selected - 30));
+                                    }
+                                }
+                            }
 
-                    _ => {}
-                },
+                            _ => {}
+                        },
 
-                _ => match key.code {
-                    KeyCode::Char('q') => return Some(Signal::Quit),
-                    KeyCode::Tab => return Some(Signal::CycleTab),
-                    KeyCode::Char('j') => self.list_state.select_next(),
-                    KeyCode::Char('k') => self.list_state.select_previous(),
-                    KeyCode::Char('/') => self.search_popup.toggle(),
+                        _ => match key.code {
+                            KeyCode::Char('q') => return Some(Signal::Quit),
+                            KeyCode::Tab => return Some(Signal::CycleTab),
+                            KeyCode::Char('j') => self.list_state.select_next(),
+                            KeyCode::Char('k') => self.list_state.select_previous(),
+                            KeyCode::Char('/') => self.search_popup.toggle(),
 
-                    // TODO: Reimplement searchable "spaces"
-                    // KeyCode::Char('n') => todo!("Next search"),
-                    // KeyCode::Char('N') => todo!("prev search"),
-                    KeyCode::Char('f') => self.cycle_filter(),
+                            // TODO: Reimplement searchable "spaces"
+                            // KeyCode::Char('n') => todo!("Next search"),
+                            // KeyCode::Char('N') => todo!("prev search"),
+                            KeyCode::Char('f') => self.cycle_filter(),
 
-                    _ => {}
-                },
+                            _ => {}
+                        },
+                    }
+                }
             }
+            Event::LoadStateUpdate(_) => {}
         }
 
         None

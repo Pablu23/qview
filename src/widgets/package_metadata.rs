@@ -7,10 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    gentoo::{
-        InstalledPackage,
-        package::{Metadata, PackageKey},
-    },
+    gentoo::package::Metadata,
     theme::Theme,
     widgets::helpers::{homepage_lines, human_size},
 };
