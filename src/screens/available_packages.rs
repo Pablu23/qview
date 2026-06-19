@@ -1,9 +1,12 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use ratatui::{
     Frame,
     crossterm::event::KeyCode,
-    layout::{Constraint, Layout, Rect},
+    layout::{Alignment, Constraint, Layout, Rect},
     style::Color,
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListState, Paragraph},
@@ -151,6 +154,17 @@ impl Default for AvailablePackagesScreen {
     }
 }
 
+fn loading_spinner() -> &'static str {
+    const FRAMES: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
+
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+
+    FRAMES[((millis / 100) as usize) % FRAMES.len()]
+}
+
 impl Screen for AvailablePackagesScreen {
     fn draw(
         &mut self,
@@ -159,8 +173,32 @@ impl Screen for AvailablePackagesScreen {
         _repo: &crate::gentoo::Portage,
     ) {
         if !matches!(self.loading_state, LoadingState::Complete) {
-            // TODO: Implement loading screen
-            frame.render_widget(Text::styled("Not implemented yet :P", Theme::text()), area);
+            let text = match self.loading_state {
+                LoadingState::Loading => Line::from(vec![
+                    Span::styled(loading_spinner(), Theme::muted()),
+                    Span::raw(" "),
+                    Span::styled("Loading available packages...", Theme::text()),
+                ]),
+                LoadingState::Error => Line::from(Span::styled(
+                    "Failed to load available packages",
+                    Theme::error(),
+                )),
+                LoadingState::Idle => Line::from(Span::styled(
+                    "Waiting to load available packages...",
+                    Theme::muted(),
+                )),
+                LoadingState::Complete => unreachable!(),
+            };
+
+            frame.render_widget(
+                Paragraph::new(text).alignment(Alignment::Center).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Theme::block())
+                        .title("Available packages"),
+                ),
+                area,
+            );
             return;
         }
 
