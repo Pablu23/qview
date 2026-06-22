@@ -7,7 +7,7 @@ use ratatui::{
     Frame,
     crossterm::event::KeyCode,
     layout::{Alignment, Constraint, Layout, Rect},
-    style::Color,
+    style::{Color, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListState, Paragraph},
 };
@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum CurrentList {
     PackageList,
     VariantList,
@@ -58,18 +58,39 @@ fn version_to_variant(pkg_version: &PackageVersion) -> String {
 }
 
 impl AvailablePackagesScreen {
+    fn list_border_style<'a>(&self, title: &'a str, list: CurrentList) -> Block<'a> {
+        if self.chosen_list == list {
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Theme::info())
+                .title(title)
+        } else {
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Theme::block())
+                .title(title)
+        }
+    }
+
     fn render_packages(&mut self, frame: &mut Frame, area: Rect) {
-        // might not need to be own function
         if let Some(list) = &self.pkg_list {
-            frame.render_stateful_widget(list, area, &mut self.pkg_list_state);
+            let block = self.list_border_style("Available Packages", CurrentList::PackageList);
+            let inner = block.inner(area);
+
+            frame.render_widget(block, area);
+
+            frame.render_stateful_widget(list, inner, &mut self.pkg_list_state);
         }
     }
 
     fn render_package_variants(&mut self, frame: &mut Frame, area: Rect) {
-        // TODO: Put this into screen, instead of rebuilding the list every frame
-
         if let Some(list) = &self.variant_list {
-            frame.render_stateful_widget(list, area, &mut self.variant_list_state);
+            let block = self.list_border_style("Package Versions", CurrentList::VariantList);
+            let inner = block.inner(area);
+
+            frame.render_widget(block, area);
+
+            frame.render_stateful_widget(list, inner, &mut self.variant_list_state);
         }
     }
 
@@ -115,13 +136,12 @@ impl AvailablePackagesScreen {
             List::new(pkg_versions.iter().map(|v| version_to_variant(v)))
                 .style(Color::White)
                 .highlight_style(Theme::selected())
-                .highlight_symbol("> ")
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(Theme::block())
-                        .title("Variants"),
-                ),
+                .highlight_symbol("> "), // , // .block(
+                                         //     Block::default()
+                                         //         .borders(Borders::ALL)
+                                         //         .border_style(Theme::block())
+                                         //         .title("Variants"),
+                                         // ),
         );
 
         self.selected_version = Some(pkg_versions[0].clone());
@@ -348,13 +368,13 @@ impl Screen for AvailablePackagesScreen {
                     let list = List::new(packages)
                         .style(Color::White)
                         .highlight_style(Theme::selected())
-                        .highlight_symbol("> ")
-                        .block(
-                            Block::default()
-                                .borders(Borders::ALL)
-                                .border_style(Theme::block())
-                                .title("Available packages"),
-                        );
+                        .highlight_symbol("> ");
+                    // .block(
+                    //     Block::default()
+                    //         .borders(Borders::ALL)
+                    //         .border_style(Theme::block())
+                    //         .title("Available packages"),
+                    // );
 
                     self.pkg_list = Some(list);
                     self.loading_state = LoadingState::Complete;
