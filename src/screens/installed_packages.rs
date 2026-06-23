@@ -4,17 +4,17 @@ use crate::{
     signal::{Event, Signal},
     theme::Theme,
     widgets::{
-        helpers::search_popup_rect, package_metadata::render_package_metadata,
-        search_popup::SearchPopup, use_flags::render_use_flags,
+        package_metadata::render_package_metadata, search_popup::SearchPopup,
+        use_flags::render_use_flags,
     },
 };
 use ratatui::{
     Frame,
     crossterm::event::{KeyCode, KeyModifiers},
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::Color,
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListState, Paragraph},
 };
 
 #[derive(Debug)]
@@ -114,7 +114,6 @@ impl Screen for InstalledPackagesScreen {
                 frame,
                 split_vert[0],
                 pkg.iuse.iter().collect(),
-                // TODO: Dont use clone here if possible
                 &pkg.enabled_use_flags,
             );
             render_package_metadata(
@@ -129,19 +128,13 @@ impl Screen for InstalledPackagesScreen {
 
         let text = if self.search_popup.visible {
             "(esc) to quit search | (enter) to search".to_string()
+        } else if let Some((current, total)) = self.search_popup.match_status() {
+            format!(
+                "(q) to quit | (j) down | (k) up | (space) switch panel | (/) to search | Search {current}/{total} | (n) next | (N) previous"
+            )
         } else {
             let main_key_hint =
                 "(q) to quit | (j) down | (k) up | (f) filter | (/) to search".to_string();
-            // if let (Some(current), Some(total)) = (app.current_search_index, app.search_indexes_len)
-            // {
-            //     let _ = write!(
-            //         main_key_hint,
-            //         " | (n) for next search | (N) for previous search | Searches found: {} / {}",
-            //         current + 1,
-            //         total
-            //     );
-            // }
-
             main_key_hint
         };
 
@@ -215,9 +208,17 @@ impl Screen for InstalledPackagesScreen {
                             KeyCode::Char('k') => self.list_state.select_previous(),
                             KeyCode::Char('/') => self.search_popup.toggle(),
 
-                            // TODO: Reimplement searchable "spaces"
-                            // KeyCode::Char('n') => todo!("Next search"),
-                            // KeyCode::Char('N') => todo!("prev search"),
+                            KeyCode::Char('n') => {
+                                if let Some(index) = self.search_popup.next_match() {
+                                    self.list_state.select(Some(index))
+                                }
+                            }
+
+                            KeyCode::Char('N') => {
+                                if let Some(index) = self.search_popup.previous_match() {
+                                    self.list_state.select(Some(index))
+                                }
+                            }
                             KeyCode::Char('f') => self.cycle_filter(),
 
                             _ => {}

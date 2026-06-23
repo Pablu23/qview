@@ -7,8 +7,8 @@ use ratatui::{
     Frame,
     crossterm::event::KeyCode,
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Style},
-    text::{Line, Span, Text},
+    style::Color,
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListState, Paragraph},
 };
 
@@ -136,15 +136,15 @@ impl AvailablePackagesScreen {
             List::new(pkg_versions.iter().map(|v| version_to_variant(v)))
                 .style(Color::White)
                 .highlight_style(Theme::selected())
-                .highlight_symbol("> "), // , // .block(
-                                         //     Block::default()
-                                         //         .borders(Borders::ALL)
-                                         //         .border_style(Theme::block())
-                                         //         .title("Variants"),
-                                         // ),
+                .highlight_symbol("> "),
         );
 
         self.selected_version = Some(pkg_versions[0].clone());
+    }
+
+    fn select_package_index(&mut self, index: usize, repo: &Portage) {
+        self.pkg_list_state.select(Some(index));
+        self.build_pkg_version_list(repo);
     }
 }
 
@@ -258,6 +258,10 @@ impl Screen for AvailablePackagesScreen {
 
         let text = if self.search_popup.visible {
             "(esc) to quit search | (enter) to search".to_string()
+        } else if let Some((current, total)) = self.search_popup.match_status() {
+            format!(
+                "(q) to quit | (j) down | (k) up | (space) switch panel | (/) to search | Search {current}/{total} | (n) next | (N) previous"
+            )
         } else {
             "(q) to quit | (j) down | (k) up | (space) switch panel | (/) to search".to_string()
         };
@@ -311,6 +315,18 @@ impl Screen for AvailablePackagesScreen {
                         // TODO: This should cycle, also space isnt a good key for this
                         KeyCode::Char(' ') => self.cycle_list(),
                         KeyCode::Char('/') => self.search_popup.toggle(),
+
+                        KeyCode::Char('n') => {
+                            if let Some(index) = self.search_popup.next_match() {
+                                self.select_package_index(index, repo)
+                            }
+                        }
+
+                        KeyCode::Char('N') => {
+                            if let Some(index) = self.search_popup.previous_match() {
+                                self.select_package_index(index, repo)
+                            }
+                        }
 
                         _ => match self.chosen_list {
                             CurrentList::PackageList => match key.code {
@@ -369,12 +385,6 @@ impl Screen for AvailablePackagesScreen {
                         .style(Color::White)
                         .highlight_style(Theme::selected())
                         .highlight_symbol("> ");
-                    // .block(
-                    //     Block::default()
-                    //         .borders(Borders::ALL)
-                    //         .border_style(Theme::block())
-                    //         .title("Available packages"),
-                    // );
 
                     self.pkg_list = Some(list);
                     self.loading_state = LoadingState::Complete;
